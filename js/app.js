@@ -1,4 +1,4 @@
-﻿(function(){
+(function(){
 'use strict';
 var $app=document.getElementById('app');
 /* ---------- Sayfa Gecisi ve Yukleme Denetleyicisi (Page Transition Loader) ---------- */
@@ -38,7 +38,7 @@ function hidePageLoader() {
 }
 
 function navigateToPage(url, msg) {
-  showPageLoader(msg || 'Sayfa YÃ¼kleniyor...');
+  showPageLoader(msg || 'Sayfa Yükleniyor...');
   setTimeout(function() {
     window.location.href = url;
   }, PAGE_LOAD_DURATION);
@@ -6562,16 +6562,16 @@ document.addEventListener('click',function(e){
         var curBase = (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
         if (targetBase && targetBase !== curBase) {
           e.preventDefault();
-          var navMsg = 'Sayfa HazÄ±rlanÄ±yor...';
-          if (targetBase === 'kitaplar.html') navMsg = 'Kitaplar ve Okuma Listesi YÃ¼kleniyor...';
-          else if (targetBase === 'okuma-listem.html') navMsg = 'Okuma Listeniz AÃ§Ä±lÄ±yor...';
-          else if (targetBase === 'kitap.html') navMsg = 'Kitap Tahlili ve DetaylarÄ± YÃ¼kleniyor...';
-          else if (targetBase === 'alintilar.html') navMsg = 'Edebi AlÄ±ntÄ±lar Derleniyor...';
-          else if (targetBase === 'sozluk.html') navMsg = 'Kavramlar SÃ¶zlÃ¼ÄŸÃ¼ AÃ§Ä±lÄ±yor...';
-          else if (targetBase === 'meydan-okuma.html') navMsg = 'Meydan Okumalar HazÄ±rlanÄ±yor...';
-          else if (targetBase === 'kamp.html') navMsg = 'Okuma KampÄ± TartÄ±ÅŸmasÄ± YÃ¼kleniyor...';
-          else if (targetBase === 'test.html') navMsg = 'Edebi Testler YÃ¼kleniyor...';
-          else if (targetBase === 'index.html') navMsg = 'Ana Sayfaya DÃ¶nÃ¼lÃ¼yor...';
+          var navMsg = 'Sayfa Hazırlanıyor...';
+          if (targetBase === 'kitaplar.html') navMsg = 'Kitaplar ve Okuma Listesi Yükleniyor...';
+          else if (targetBase === 'okuma-listem.html') navMsg = 'Okuma Listeniz Açılıyor...';
+          else if (targetBase === 'kitap.html') navMsg = 'Kitap Tahlili ve Detayları Yükleniyor...';
+          else if (targetBase === 'alintilar.html') navMsg = 'Edebi Alıntılar Derleniyor...';
+          else if (targetBase === 'sozluk.html') navMsg = 'Kavramlar Sözlüğü Açılıyor...';
+          else if (targetBase === 'meydan-okuma.html') navMsg = 'Meydan Okumalar Hazırlanıyor...';
+          else if (targetBase === 'kamp.html') navMsg = 'Okuma Kampı Tartışması Yükleniyor...';
+          else if (targetBase === 'test.html') navMsg = 'Edebi Testler Yükleniyor...';
+          else if (targetBase === 'index.html') navMsg = 'Ana Sayfaya Dönülüyor...';
           navigateToPage(href, navMsg);
           return;
         }

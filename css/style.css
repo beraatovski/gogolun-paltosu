@@ -563,22 +563,30 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   width: 100vw;
   height: 100vh;
-  background: var(--bg);
-  z-index: 999999;
+  background-color: var(--paper, #f3ead9);
+  z-index: 9999999;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.28s ease, visibility 0.28s ease;
 }
 
 .page-loader.active {
   opacity: 1;
+  visibility: visible;
   pointer-events: all;
+}
+
+:root[data-theme="dark"] .page-loader {
+  background-color: var(--paper, #18191c);
 }
 
 .loader-progress {
@@ -588,7 +596,7 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
   width: 100%;
   height: 3px;
   background: transparent;
-  z-index: 1000000;
+  z-index: 10000000;
 }
 
 .loader-progress-bar {
@@ -600,18 +608,31 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
 }
 
 .loader-content {
+  background: var(--card, #faf4e6);
+  border: 1px solid var(--line, #d5c5a5);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px -10px rgba(60, 35, 15, 0.22);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  max-width: 480px;
-  padding: 30px;
+  max-width: 460px;
+  width: 90%;
+  padding: 34px 28px;
+  position: relative;
+  z-index: 2;
+}
+
+:root[data-theme="dark"] .loader-content {
+  background: var(--card, #282a32);
+  border-color: var(--line, #333642);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
 }
 
 .loader-emblem {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 20px;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 18px;
   color: var(--accent);
   animation: loaderPulse 1.6s ease-in-out infinite alternate;
 }
@@ -622,7 +643,7 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
 }
 
 @keyframes loaderPulse {
-  0% { transform: scale(0.94); opacity: 0.75; }
+  0% { transform: scale(0.94); opacity: 0.8; }
   100% { transform: scale(1.06); opacity: 1; filter: drop-shadow(0 6px 14px rgba(122,31,43,0.35)); }
 }
 
@@ -648,7 +669,7 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
   font-family: var(--serif);
   font-style: italic;
   font-size: 0.88rem;
-  color: var(--muted);
+  color: var(--ink-soft);
   line-height: 1.5;
   border-top: 1px solid var(--line);
   padding-top: 12px;
