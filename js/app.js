@@ -5447,7 +5447,7 @@ function header(p){
       +'</div>';
   }
 
-  var isBooksGroup = ['kitaplar','kitap','okuma-listem','alintilar','sozluk','kavramlar'].indexOf(p[0]) >= 0;
+  var isBooksGroup = ['kitaplar','kitap','okuma-listem','kamp','tartisma','okuma-kampi','alintilar','sozluk','kavramlar'].indexOf(p[0]) >= 0;
 
   var booksDropdownHTML = '<div class="nav-dropdown" id="nav-books-dropdown">'
     + '<button class="nav-dropdown-btn' + (isBooksGroup ? ' on' : '') + '" data-a="toggle-nav-dropdown" aria-haspopup="true" aria-expanded="false" title="Kitaplar ve Edebi Bölümler">'
@@ -5457,6 +5457,7 @@ function header(p){
     + '</button>'
     + '<div class="nav-dropdown-menu">'
     + '<a href="kitaplar.html"' + ((p[0]==='kitaplar'||p[0]==='kitap'||p[0]==='okuma-listem') ? ' class="on"' : '') + '><span class="nav-sub-icon">📚</span><span class="nav-sub-title">Kitaplar & Okuma Listem</span>' + favBadge + '</a>'
+    + '<a href="kamp.html"' + (p[0]==='kamp'||p[0]==='tartisma'||p[0]==='okuma-kampi' ? ' class="on"' : '') + '><span class="nav-sub-icon">⛺</span><span class="nav-sub-title">Okuma Kampı & Tahliller</span></a>'
     + '<a href="alintilar.html"' + on('alintilar') + '><span class="nav-sub-icon">💬</span><span class="nav-sub-title">Alıntılar</span></a>'
     + '<a href="sozluk.html"' + (p[0]==='sozluk'||p[0]==='kavramlar' ? ' class="on"' : '') + '><span class="nav-sub-icon">📖</span><span class="nav-sub-title">Sözlük</span></a>'
     + '</div>'
@@ -5474,7 +5475,7 @@ function header(p){
     + '<div class="drawer-nav-label">Sayfalar</div>'
     + '<a href="index.html"' + (p[0]==='' ? ' class="on"' : '') + '><span class="drawer-icon">🏠</span><span>Ana Sayfa</span></a>'
     + '<a href="kitaplar.html"' + ((p[0]==='kitaplar'||p[0]==='kitap'||p[0]==='okuma-listem') ? ' class="on"' : '') + '><span class="drawer-icon">📚</span><span>Kitaplar & Okuma Listem</span>' + favBadge + '</a>'
-    + '<a href="kamp.html"' + on('kamp') + '><span class="drawer-icon">⛺</span><span>Okuma Kampı</span></a>'
+    + '<a href="kamp.html"' + (p[0]==='kamp'||p[0]==='tartisma'||p[0]==='okuma-kampi' ? ' class="on"' : '') + '><span class="drawer-icon">⛺</span><span>Okuma Kampı</span></a>'
     + '<a href="alintilar.html"' + on('alintilar') + '><span class="drawer-icon">💬</span><span>Edebi Alıntılar</span></a>'
     + '<a href="sozluk.html"' + (p[0]==='sozluk'||p[0]==='kavramlar' ? ' class="on"' : '') + '><span class="drawer-icon">📖</span><span>Kavramlar Sözlüğü</span></a>'
     + '<a href="meydan-okuma.html"' + on('meydan-okuma') + '><span class="drawer-icon">🎯</span><span>Meydan Okuma</span></a>'
