@@ -166,16 +166,9 @@ var curUser = getStoredUser();
 var authTab = 'login';
 
 function syncFavsWithCloud(cloudList) {
-  if (!Array.isArray(cloudList)) cloudList = [];
-  var merged = favs.slice();
-  cloudList.forEach(function(id) {
-    if (merged.indexOf(id) < 0) merged.push(id);
-  });
-  favs = merged;
+  if (!Array.isArray(cloudList)) return;
+  favs = cloudList.slice();
   try { localStorage.setItem('gp-favs', JSON.stringify(favs)); } catch(e){}
-  if (curUser && supa && merged.length > cloudList.length) {
-    supa.auth.updateUser({ data: { reading_list: merged } }).catch(function(){});
-  }
 }
 
 var ADMIN_IDENTIFIERS = ['gogolunpaltosu'];
@@ -4510,20 +4503,41 @@ function handleUserSession(user) {
   if (user) {
     var uMeta = user.user_metadata || {};
     var isAdm = canEdit || uMeta.role === 'admin' || (user.email && user.email.indexOf('gogolunpaltosu') >= 0);
+    if (user.user_metadata && Array.isArray(user.user_metadata.reading_list)) {
+      syncFavsWithCloud(user.user_metadata.reading_list);
+    }
     if (supa && user.id && user.id.indexOf('admin-') < 0 && user.id.indexOf('member_') < 0) {
       try {
-        supa.from('profiles').upsert({
-          id: user.id,
-          email: user.email,
-          username: uMeta.username || (user.email ? user.email.split('@')[0] : 'okur'),
-          full_name: uMeta.full_name || 'Edebiyat Okuru',
-          avatar_url: uMeta.avatar_url || '',
-          role: isAdm ? 'admin' : 'member',
-          reading_list: uMeta.reading_list || favs,
-          badges: uMeta.badges || [],
-          challenges: uMeta.challenges || [],
-          quotes: uMeta.quotes || []
-        }).then(function(){}).catch(function(){});
+        supa.from('profiles').select('*').eq('id', user.id).maybeSingle().then(function(res){
+          if (res && res.data) {
+            var p = res.data;
+            if (Array.isArray(p.reading_list)) {
+              favs = p.reading_list.slice();
+              try { localStorage.setItem('gp-favs', JSON.stringify(favs)); } catch(e){}
+              if (curUser) {
+                if (!curUser.user_metadata) curUser.user_metadata = {};
+                curUser.user_metadata.reading_list = favs.slice();
+                storeUser(curUser);
+              }
+              render();
+            }
+          } else {
+            supa.from('profiles').insert({
+              id: user.id,
+              email: user.email,
+              username: uMeta.username || (user.email ? user.email.split('@')[0] : 'okur'),
+              full_name: uMeta.full_name || 'Edebiyat Okuru',
+              avatar_url: uMeta.avatar_url || '',
+              role: isAdm ? 'admin' : 'member',
+              reading_list: Array.isArray(uMeta.reading_list) ? uMeta.reading_list : favs,
+              badges: uMeta.badges || [],
+              challenges: uMeta.challenges || [],
+              quotes: uMeta.quotes || []
+            }).then(function(){}).catch(function(){});
+          }
+        }).catch(function(err){
+          console.warn('Profil kontrol hatası:', err);
+        });
       } catch(e){}
     }
     addMemberToRegistry({
@@ -4533,11 +4547,10 @@ function handleUserSession(user) {
       full_name: uMeta.full_name || '',
       created_at: user.created_at || new Date().toISOString(),
       role: isAdm ? 'admin' : 'member',
-      reading_list: uMeta.reading_list || favs,
+      reading_list: Array.isArray(uMeta.reading_list) ? uMeta.reading_list : favs,
       confirmed: true
     });
     if (user.user_metadata) {
-      syncFavsWithCloud(user.user_metadata.reading_list);
       if (Array.isArray(user.user_metadata.quotes) && user.user_metadata.quotes.length) {
         try {
           var locQ = JSON.parse(localStorage.getItem('gp-custom-quotes') || '[]');
@@ -5221,13 +5234,37 @@ var favs=getFavs();
 function isFav(id){return favs.indexOf(id)>=0;}
 function toggleFav(id){
   var i=favs.indexOf(id);
-  if(i>=0){favs.splice(i,1);toast('Okuma listenizden çıkarıldı.');}
-  else{favs.push(id);toast('Okuma listenize eklendi.');}
+  if(i>=0){
+    favs.splice(i,1);
+    toast('Okuma listenizden çıkarıldı.');
+    try {
+      var rMap = getReadingStatusMap();
+      if (rMap && rMap[id]) {
+        delete rMap[id];
+        localStorage.setItem('gp-reading-status', JSON.stringify(rMap));
+      }
+    } catch(err){}
+  } else {
+    favs.push(id);
+    toast('Okuma listenize eklendi.');
+  }
   try{localStorage.setItem('gp-favs',JSON.stringify(favs));}catch(e){}
-  if(curUser && supa){
-    supa.auth.updateUser({ data: { reading_list: favs } }).catch(function(err){
-      console.warn('Buluta kaydedilemedi:', err);
-    });
+
+  if(curUser){
+    if(!curUser.user_metadata) curUser.user_metadata = {};
+    curUser.user_metadata.reading_list = favs.slice();
+    storeUser(curUser);
+
+    if(supa){
+      if(curUser.id){
+        supa.from('profiles').update({ reading_list: favs }).eq('id', curUser.id).then(function(){}).catch(function(err){
+          console.warn('Profil okuma listesi güncellenemedi:', err);
+        });
+      }
+      supa.auth.updateUser({ data: { reading_list: favs } }).then(function(){}).catch(function(err){
+        console.warn('Buluta kaydedilemedi:', err);
+      });
+    }
   }
   render();
 }
@@ -7763,10 +7800,18 @@ async function init(){
       var sRes=await supa.auth.getSession();
       if(sRes&&sRes.data&&sRes.data.session&&sRes.data.session.user){
         curUser=sRes.data.session.user;
+        try {
+          var uRes = await supa.auth.getUser();
+          if (uRes && uRes.data && uRes.data.user) {
+            curUser = uRes.data.user;
+          }
+        } catch(e){}
         storeUser(curUser);
         updateAdminStatus();
         if(curUser.user_metadata){
-          syncFavsWithCloud(curUser.user_metadata.reading_list);
+          if (Array.isArray(curUser.user_metadata.reading_list)) {
+            syncFavsWithCloud(curUser.user_metadata.reading_list);
+          }
           if (Array.isArray(curUser.user_metadata.quotes) && curUser.user_metadata.quotes.length) {
             try {
               var locQ = JSON.parse(localStorage.getItem('gp-custom-quotes') || '[]');
@@ -7778,6 +7823,19 @@ async function init(){
               localStorage.setItem('gp-custom-quotes', JSON.stringify(locQ));
             } catch(e){}
           }
+        }
+        if(curUser.id && curUser.id.indexOf('admin-') < 0 && curUser.id.indexOf('member_') < 0){
+          try {
+            var profRes = await supa.from('profiles').select('reading_list').eq('id', curUser.id).maybeSingle();
+            if(profRes && profRes.data && Array.isArray(profRes.data.reading_list)){
+              favs = profRes.data.reading_list.slice();
+              try { localStorage.setItem('gp-favs', JSON.stringify(favs)); } catch(e){}
+              if(!curUser.user_metadata) curUser.user_metadata = {};
+              curUser.user_metadata.reading_list = favs.slice();
+              storeUser(curUser);
+              render();
+            }
+          } catch(e){}
         }
         if(isSignupConfirm){
           isSignupConfirm = false;
