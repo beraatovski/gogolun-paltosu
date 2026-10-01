@@ -71,7 +71,13 @@ function getStoredUser() {
     var raw = localStorage.getItem('gp-auth-user');
     if (!raw) return null;
     var parsed = JSON.parse(raw);
-    if (parsed && (parsed.id || parsed.email)) return parsed;
+    if (parsed && (parsed.id || parsed.email)) {
+      if (parsed.email === 'gogolunpaltosu@gmail.com') {
+        parsed.email = 'ngogolunpaltosu@gmail.com';
+        try { localStorage.setItem('gp-auth-user', JSON.stringify(parsed)); } catch(err){}
+      }
+      return parsed;
+    }
     return null;
   } catch(e) {
     return null;
@@ -81,6 +87,9 @@ function getStoredUser() {
 function storeUser(user) {
   try {
     if (user && (user.id || user.email)) {
+      if (user.email === 'gogolunpaltosu@gmail.com') {
+        user.email = 'ngogolunpaltosu@gmail.com';
+      }
       localStorage.setItem('gp-auth-user', JSON.stringify(user));
     } else {
       localStorage.removeItem('gp-auth-user');
@@ -175,7 +184,7 @@ var memberSearchQ = '';
 
 var DEFAULT_ADMIN_MEMBER = {
   id: 'admin-gogolunpaltosu',
-  email: 'gogolunpaltosu@gmail.com',
+  email: 'ngogolunpaltosu@gmail.com',
   username: 'gogolunpaltosu',
   full_name: "Gogol'un Paltosu (Yönetici)",
   role: 'admin',
@@ -4917,7 +4926,7 @@ function attachAuthModalEvents(ov) {
           if (cachedEmail) {
             loginEmail = cachedEmail;
           } else if (cleanIdent === 'gogolunpaltosu') {
-            loginEmail = 'gogolunpaltosu@gmail.com';
+            loginEmail = 'ngogolunpaltosu@gmail.com';
           } else {
             try {
               var rpcRes = await supa.rpc('get_email_by_username', { p_username: cleanIdent });
@@ -4941,7 +4950,7 @@ function attachAuthModalEvents(ov) {
             toast('Yönetici olarak giriş yapıldı! Hoş geldiniz, Gogol\'un Paltosu.');
             handleUserSession({
               id: 'admin-gogolunpaltosu',
-              email: 'gogolunpaltosu@gmail.com',
+              email: 'ngogolunpaltosu@gmail.com',
               user_metadata: {
                 full_name: "Gogol'un Paltosu",
                 username: 'gogolunpaltosu',
@@ -6086,7 +6095,7 @@ function memberRowHTML(m){
   var mId = m.id || m.username || m.email;
   var viewProfBtn = profileLink ? '<a class="btn ghost small" href="' + profileLink + '" title="Profili ve okuma listesini incele">👤 Profil</a>' : '';
   var acts = '';
-  if (!isSelf && m.username !== 'gogolunpaltosu' && m.email !== 'gogolunpaltosu@gmail.com') {
+  if (!isSelf && m.username !== 'gogolunpaltosu' && m.email !== 'ngogolunpaltosu@gmail.com' && m.email !== 'gogolunpaltosu@gmail.com') {
     acts = '<div class="member-acts">'
       + viewProfBtn
       + '<button class="btn ghost small" data-a="toggle-member-role" data-id="' + esc(mId) + '" title="Rolü Değiştir">' + (isAdmin ? 'Okur Yap' : 'Yönetici Yap') + '</button>'
@@ -6436,6 +6445,9 @@ function accountPage(targetId){
   var fullName = meta.full_name || 'Edebiyat Okuru';
   var username = meta.username ? meta.username.replace(/^@/,'') : '';
   var email = curUser.email || '';
+  if (email === 'gogolunpaltosu@gmail.com' || username === 'gogolunpaltosu') {
+    email = 'ngogolunpaltosu@gmail.com';
+  }
   var isAdmin = canEdit;
   var myReviews = getUserReviews(username || email || curUser.id);
   var myQuotes = getUserQuotes(username || email || curUser.id);
