@@ -57,7 +57,7 @@ function navigateToPage(url, msg) {
 var BASE = JSON.stringify(window.SITE_DATA || (document.getElementById('site-data') ? JSON.parse(document.getElementById('site-data').textContent) : {}));
 var S=JSON.parse(BASE);
 var canEdit=false, dirty=false, readerScale=1;
-var lib={q:'',cat:'',sort:'new',favOnly:false,dlOnly:false,page:1};
+var lib={q:'',cat:'',pub:'',sort:'new',favOnly:false,dlOnly:false,page:1,filterOpen:false};
 var formImg='';
 var DEFAULT_CATS=['Roman','Öykü','Şiir','Deneme','Tiyatro','Sanat','Felsefe','Biyografi','Diğer'];
 var COLORS=['#5b2a2a','#2f3e46','#3d4a36','#6b4f2a','#2d3a5a','#4a3358','#1f1f1f','#7a3b1d'];
@@ -5356,6 +5356,117 @@ function byDate(a,b){return String(b.date||'').localeCompare(String(a.date||''))
 function catCounts(list){var m={};list.forEach(function(b){var c=b.category||'Diğer';m[c]=(m[c]||0)+1;});return Object.keys(m).map(function(k){return [k,m[k]];}).sort(function(a,b){return b[1]-a[1];});}
 function allPubs(){var s=[];S.books.forEach(function(b){if(b.publisher&&s.indexOf(b.publisher)<0)s.push(b.publisher);});return s;}
 function allCats(){var s=DEFAULT_CATS.slice();S.books.forEach(function(b){if(b.category&&s.indexOf(b.category)<0)s.push(b.category);});return s;}
+function pubCounts(list){
+  var m={};
+  (list||[]).forEach(function(b){
+    var p=(b.publisher||'').trim();
+    if(p) m[p]=(m[p]||0)+1;
+  });
+  return Object.keys(m).map(function(k){return [k,m[k]];}).sort(function(a,b){return b[1]-a[1];});
+}
+function getActiveFilterCount(){
+  var count = 0;
+  if(lib.q && lib.q.trim()) count++;
+  if(lib.pub) count++;
+  if(lib.cat) count++;
+  if(lib.dlOnly) count++;
+  if(lib.sort && lib.sort !== 'new') count++;
+  return count;
+}
+function getFilteredBooksCount(isFavPage, isDlPage, statusParam){
+  var isDl = isDlPage || lib.dlOnly;
+  var allPub = pubBooks();
+  var stFilter = isFavPage ? getStatusKeyFromParam(statusParam || route()[1]) : '';
+  var q = lc(lib.q).trim();
+  return allPub.filter(function(b){
+    if(isDl && !hasDownload(b)) return false;
+    if(isFavPage || lib.favOnly){
+      if(!isFav(b.id)) return false;
+      if(stFilter && getReadingStatus(b.id) !== stFilter) return false;
+    }
+    if(lib.pub && (b.publisher || '') !== lib.pub) return false;
+    if(lib.cat && (b.category || 'Diğer') !== lib.cat) return false;
+    if(!q) return true;
+    return lc([b.title, b.author, b.publisher, b.category, (b.tags || []).join(' '), b.summary, b.transcript].join(' ')).indexOf(q) >= 0;
+  }).length;
+}
+function renderActiveFiltersHTML(){
+  var tags = [];
+  if(lib.q && lib.q.trim()){
+    tags.push('<button type="button" class="active-tag" data-a="remove-filter" data-type="q" title="Arama terimini kaldır">🔍 “' + esc(lib.q.trim()) + '” ✕</button>');
+  }
+  if(lib.pub){
+    tags.push('<button type="button" class="active-tag" data-a="remove-filter" data-type="pub" title="Yayınevi filtresini kaldır">📚 ' + esc(lib.pub) + ' ✕</button>');
+  }
+  if(lib.cat){
+    tags.push('<button type="button" class="active-tag" data-a="remove-filter" data-type="cat" title="Kategori filtresini kaldır">📁 ' + esc(lib.cat) + ' ✕</button>');
+  }
+  if(lib.dlOnly){
+    tags.push('<button type="button" class="active-tag" data-a="remove-filter" data-type="dl" title="İndirilebilir filtresini kaldır">⬇ EPUB / PDF ✕</button>');
+  }
+  if(lib.sort && lib.sort !== 'new'){
+    var sortNames = { old: 'En eski', az: 'A → Z', za: 'Z → A' };
+    tags.push('<button type="button" class="active-tag" data-a="remove-filter" data-type="sort" title="Sıralamayı sıfırla">⇅ ' + esc(sortNames[lib.sort] || lib.sort) + ' ✕</button>');
+  }
+  if(!tags.length) return '';
+  return '<div class="active-filters-bar">'
+    + '<span class="active-filters-label">Aktif Filtreler:</span>'
+    + tags.join('')
+    + '<button type="button" class="active-clear-all" data-a="clear-all-filters">Tümünü Temizle</button>'
+    + '</div>';
+}
+function renderFilterPanelContent(isFav, isDl){
+  var allPub = pubBooks();
+  var pc = pubCounts(allPub);
+  var cc = catCounts(allPub);
+  var totalBooks = allPub.length;
+  var dlCount = allPub.filter(hasDownload).length;
+  var currentMatchCount = getFilteredBooksCount(isFav, isDl);
+
+  var pubPills = '<button type="button" class="filter-pill' + (!lib.pub ? ' on' : '') + '" data-a="filter-pub" data-v="">Tüm Yayınevleri <small>(' + totalBooks + ')</small></button>'
+    + pc.map(function(p){
+        return '<button type="button" class="filter-pill' + (lib.pub === p[0] ? ' on' : '') + '" data-a="filter-pub" data-v="' + esc(p[0]) + '">' + esc(p[0]) + ' <small>(' + p[1] + ')</small></button>';
+      }).join('');
+
+  var catPills = '<button type="button" class="filter-pill' + (!lib.cat ? ' on' : '') + '" data-a="cat" data-v="">Tüm Türler</button>'
+    + cc.map(function(c){
+        return '<button type="button" class="filter-pill' + (lib.cat === c[0] ? ' on' : '') + '" data-a="cat" data-v="' + esc(c[0]) + '">' + esc(c[0]) + ' <small>(' + c[1] + ')</small></button>';
+      }).join('');
+
+  var dlPills = '<button type="button" class="filter-pill' + (!lib.dlOnly ? ' on' : '') + '" data-a="filter-dl" data-v="all">Tüm Kitaplar</button>'
+    + '<button type="button" class="filter-pill' + (lib.dlOnly ? ' on' : '') + '" data-a="filter-dl" data-v="dl">⬇ Sadece EPUB / PDF <small>(' + dlCount + ')</small></button>';
+
+  var sortPills = '<button type="button" class="filter-pill' + (lib.sort === 'new' ? ' on' : '') + '" data-a="filter-sort" data-v="new">En Yeni Eklenenler</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'old' ? ' on' : '') + '" data-a="filter-sort" data-v="old">En Eski</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'az' ? ' on' : '') + '" data-a="filter-sort" data-v="az">A → Z (Başlık)</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'za' ? ' on' : '') + '" data-a="filter-sort" data-v="za">Z → A (Başlık)</button>';
+
+  var hasActive = getActiveFilterCount() > 0;
+  var clearBtn = hasActive
+    ? '<button type="button" class="btn ghost small" data-a="clear-all-filters" style="color:var(--accent);border-color:var(--accent)">✕ Filtreleri Sıfırla</button>'
+    : '';
+
+  return '<div class="filter-panel-header">'
+    + '<div class="filter-panel-title">'
+    + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>'
+    + 'Detaylı Filtre Seçenekleri'
+    + '</div>'
+    + '<button type="button" class="btn ghost small" data-a="toggle-filters" style="padding:3px 10px;font-size:.82rem" title="Paneli Kapat">✕ Kapat</button>'
+    + '</div>'
+    + '<div class="filter-panel-grid">'
+    + '<div class="filter-section"><div class="filter-section-title">📚 Yayınevi</div><div class="filter-pills">' + pubPills + '</div></div>'
+    + '<div class="filter-section"><div class="filter-section-title">📁 Edebi Tür / Kategori</div><div class="filter-pills">' + catPills + '</div></div>'
+    + '<div class="filter-section"><div class="filter-section-title">⚡ Format & İndirme</div><div class="filter-pills">' + dlPills + '</div></div>'
+    + '<div class="filter-section"><div class="filter-section-title">⇅ Sıralama</div><div class="filter-pills">' + sortPills + '</div></div>'
+    + '</div>'
+    + '<div class="filter-panel-footer">'
+    + '<div class="filter-panel-info">Seçilen kriterlere uygun <b>' + currentMatchCount + '</b> kitap listeleniyor</div>'
+    + '<div class="filter-panel-actions">'
+    + clearBtn
+    + '<button type="button" class="btn small" data-a="toggle-filters">Tamam ✓</button>'
+    + '</div>'
+    + '</div>';
+}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},3200);}
 function confirmBox(msg,yesLabel,onYes){
   var ov=document.createElement('div');ov.className='ov';
@@ -5725,19 +5836,21 @@ function libResults(isFavPage, isDlPage, statusParam){
         if(st !== stFilter) return false;
       }
     }
+    if(lib.pub && (b.publisher || '') !== lib.pub) return false;
     if(lib.cat&&(b.category||'Diğer')!==lib.cat)return false;
     if(!q)return true;
     return lc([b.title,b.author,b.publisher,b.category,(b.tags||[]).join(' '),b.summary,b.transcript].join(' ')).indexOf(q)>=0;
   });
   if(lib.sort==='az')list.sort(function(a,b){return lc(a.title).localeCompare(lc(b.title),'tr');});
+  else if(lib.sort==='za')list.sort(function(a,b){return lc(b.title).localeCompare(lc(a.title),'tr');});
   else if(lib.sort==='old')list.sort(function(a,b){return byDate(b,a);});
   else list.sort(byDate);
   if(!list.length){
     if(isDl && lib.cat){
       var catLabel = 'Tüm ' + esc(lib.cat) + ' Kitaplarını Gör' + (catBookCount ? ' (' + catBookCount + ')' : '');
-      return '<p class="empty">“' + esc(lib.cat) + '” türünde henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn small ghost" data-a="cleardlfilter">' + catLabel + '</button><button class="btn small" data-a="cat" data-v="">Tüm EPUB / PDF Eserleri (' + dlCount + ')</button></div></p>';
+      return '<p class="empty">“' + esc(lib.cat) + '” türünde henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn small ghost" data-a="cleardlfilter">' + catLabel + '</button><button class="btn small" data-a="clear-all-filters">Tüm Filtreleri Sıfırla</button></div></p>';
     }
-    if(isDl)return '<p class="empty">Henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br>Yönetim panelinden kitapları düzenleyerek EPUB veya PDF indirme bağlantısı ekleyebilirsiniz.<br><br><a class="btn small" href="kitaplar.html" data-a="cleardlfilter">Tüm Kitapları İncele →</a></p>';
+    if(isDl)return '<p class="empty">Henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br><button class="btn small" data-a="clear-all-filters">Tüm Filtreleri Sıfırla</button></p>';
     if(isFavPage||lib.favOnly){
       if (stFilter === 'read') {
         return '<p class="empty">Henüz “Okundu” olarak işaretlediğiniz bir eser bulunmuyor.<br><br>Okuduğunuz kitapların detay sayfasından veya kartından “✓ Okundu” durumunu seçebilirsiniz.<br><br><a class="btn small" href="okuma-listem.html">Tüm Okuma Listesini Gör (' + favs.length + ') →</a></p>';
@@ -5746,11 +5859,11 @@ function libResults(isFavPage, isDlPage, statusParam){
       } else if (stFilter === 'want') {
         return '<p class="empty">İstek listenizde henüz kitap bulunmuyor.<br><br><a class="btn small" href="kitaplar.html">Kitapları İncele ve Ekle →</a></p>';
       }
-      return '<p class="empty">Okuma listenizde henüz kitap yok.<br><br>Kitap kartlarının üzerindeki 🔖 simgesine tıklayarak listenize ekleyebilirsiniz.<br><br><a class="btn small" href="kitaplar.html" data-a="clearfavfilter">Tüm Kitapları İncele →</a></p>';
+      return '<p class="empty">Okuma listenizde henüz kitap yok.<br><br>Kitap kartlarının üzerindeki 🔖 simgesine tıklayarak listenize ekleyebilirsiniz.<br><br><a class="btn small" href="kitaplar.html" data-a="clear-all-filters">Tüm Kitapları İncele →</a></p>';
     }
-    return '<p class="empty">Aramanızla eşleşen kitap bulunamadı.</p>';
+    return '<p class="empty">Aramanız ve seçtiğiniz filtrelerle eşleşen kitap bulunamadı.<br><br><button class="btn small" data-a="clear-all-filters">Tüm Filtreleri Sıfırla ✕</button></p>';
   }
-    var PAGE_SIZE = 25;
+  var PAGE_SIZE = 25;
   var totalBooks = list.length;
   var totalPages = Math.ceil(totalBooks / PAGE_SIZE) || 1;
   if(!lib.page || lib.page < 1) lib.page = 1;
@@ -5799,7 +5912,7 @@ function libChips(isFavPage, isDlPage, statusParam){
   }).join('');
 }
 function library(isFavPage, isDlPage, statusParam){
-  if(lib._lastFav !== isFavPage){ lib.cat = ''; lib.page = 1; lib._lastFav = isFavPage; }
+  if(lib._lastFav !== isFavPage){ lib.cat = ''; lib.pub = ''; lib.page = 1; lib._lastFav = isFavPage; }
   if(!isFavPage) lib.favOnly = false;
   if(route()[0]==='kitaplar'&&route()[1]!=='indirilebilir') lib.dlOnly = false;
   var isDl=isDlPage||lib.dlOnly;
@@ -5852,10 +5965,39 @@ function library(isFavPage, isDlPage, statusParam){
     + exportBtn
     + '</div>';
 
+  var pc = pubCounts(allPub);
+  var pubOptions = '<option value="">📚 Tüm Yayınevleri (' + allCount + ')</option>'
+    + pc.map(function(p){
+        return '<option value="' + esc(p[0]) + '"' + (lib.pub === p[0] ? ' selected' : '') + '>' + esc(p[0]) + ' (' + p[1] + ')</option>';
+      }).join('');
+
+  var activeCount = getActiveFilterCount();
+  var filterBtnContent = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>'
+    + '<span>Filtreler</span>'
+    + '<span class="filter-count-badge" id="filter-count-badge" style="' + (activeCount ? 'display:inline-flex' : 'display:none') + '">' + (activeCount || '') + '</span>';
+
+  var filtersHTML = '<div class="filters">'
+    + '<input id="lib-q" type="search" placeholder="Kitap, yazar, konu ya da metin içinde ara…" value="' + esc(lib.q) + '">'
+    + '<select id="lib-pub" title="Yayınevine Göre Filtrele">' + pubOptions + '</select>'
+    + '<select id="lib-sort" title="Sıralama Seçeneği">'
+    + '<option value="new"' + (lib.sort === 'new' ? ' selected' : '') + '>Sıralama: En yeni</option>'
+    + '<option value="old"' + (lib.sort === 'old' ? ' selected' : '') + '>Sıralama: En eski</option>'
+    + '<option value="az"' + (lib.sort === 'az' ? ' selected' : '') + '>Sıralama: A → Z</option>'
+    + '<option value="za"' + (lib.sort === 'za' ? ' selected' : '') + '>Sıralama: Z → A</option>'
+    + '</select>'
+    + '<button type="button" class="filter-btn' + (lib.filterOpen ? ' active' : '') + (activeCount ? ' has-filters' : '') + '" id="lib-filter-toggle" data-a="toggle-filters" title="Detaylı Filtre Seçenekleri">'
+    + filterBtnContent
+    + '</button>'
+    + '</div>'
+    + '<div id="lib-filter-panel" class="filter-panel' + (lib.filterOpen ? ' open' : '') + '">'
+    + renderFilterPanelContent(isFavPage, isDl)
+    + '</div>'
+    + '<div id="lib-active-filters">' + renderActiveFiltersHTML() + '</div>';
+
   return '<section class="page"><h1 class="ptitle">'+title+'</h1><p class="lead">'+lead+'</p>'
    +viewTabs
    +tip
-   +'<div class="filters"><input id="lib-q" type="search" placeholder="Kitap, yazar, konu ya da metin içinde ara…" value="'+esc(lib.q)+'"><select id="lib-sort"><option value="new"'+(lib.sort==='new'?' selected':'')+'>En yeni</option><option value="old"'+(lib.sort==='old'?' selected':'')+'>En eski</option><option value="az"'+(lib.sort==='az'?' selected':'')+'>A → Z</option></select></div>'
+   +filtersHTML
    +'<div class="chips" id="lib-chips">'+libChips(isFavPage, isDl, statusParam)+'</div><div id="lib-results">'+libResults(isFavPage, isDl, statusParam)+'</div></section>';
 }
 function transcriptHTML(b){
@@ -6776,6 +6918,10 @@ function route(){
   if (!page || page === 'index' || page === 'home') return [''];
   if (page === 'kitaplar') {
     var f = params.get('f');
+    var pubParam = params.get('yayinevi') || params.get('pub');
+    if (pubParam && !lib.pub) {
+      lib.pub = pubParam;
+    }
     return f ? ['kitaplar', f] : ['kitaplar'];
   }
   if (page === 'okuma-listem') {
@@ -6878,6 +7024,34 @@ function refreshLib(){
   var p=route();
   var isFav=(p[0]==='okuma-listem');
   var isDl=(p[0]==='kitaplar'&&p[1]==='indirilebilir')||lib.dlOnly;
+
+  var qEl = document.getElementById('lib-q');
+  if(qEl && qEl.value !== lib.q) qEl.value = lib.q;
+
+  var pubEl = document.getElementById('lib-pub');
+  if(pubEl && pubEl.value !== lib.pub) pubEl.value = lib.pub;
+
+  var sortEl = document.getElementById('lib-sort');
+  if(sortEl && sortEl.value !== lib.sort) sortEl.value = lib.sort;
+
+  var badgeEl = document.getElementById('filter-count-badge');
+  var btnEl = document.getElementById('lib-filter-toggle');
+  var activeCount = getActiveFilterCount();
+  if(badgeEl){
+    badgeEl.textContent = activeCount || '';
+    badgeEl.style.display = activeCount ? 'inline-flex' : 'none';
+  }
+  if(btnEl){
+    btnEl.classList.toggle('has-filters', activeCount > 0);
+    btnEl.classList.toggle('active', !!lib.filterOpen);
+  }
+
+  var fpEl = document.getElementById('lib-filter-panel');
+  if(fpEl) fpEl.innerHTML = renderFilterPanelContent(isFav, isDl);
+
+  var afEl = document.getElementById('lib-active-filters');
+  if(afEl) afEl.innerHTML = renderActiveFiltersHTML();
+
   var cEl=document.getElementById('lib-chips');
   var rEl=document.getElementById('lib-results');
   if(cEl)cEl.innerHTML=libChips(isFav, isDl, p[1]);
@@ -6987,6 +7161,58 @@ document.addEventListener('click',function(e){
     lib.dlOnly=false;
     lib.page=1;
     navigateToPage('kitaplar.html');
+  }
+  else if(a==='toggle-filters'){
+    lib.filterOpen = !lib.filterOpen;
+    var panel = document.getElementById('lib-filter-panel');
+    var btn = document.getElementById('lib-filter-toggle');
+    if(panel) panel.classList.toggle('open', lib.filterOpen);
+    if(btn) btn.classList.toggle('active', lib.filterOpen);
+  }
+  else if(a==='filter-pub'){
+    lib.pub = (lib.pub === v) ? '' : (v || '');
+    lib.page = 1;
+    refreshLib();
+  }
+  else if(a==='filter-sort'){
+    lib.sort = v || 'new';
+    lib.page = 1;
+    refreshLib();
+  }
+  else if(a==='filter-dl'){
+    lib.dlOnly = (v === 'dl');
+    lib.page = 1;
+    refreshLib();
+  }
+  else if(a==='clear-all-filters' || a==='clearlibfilters'){
+    lib.q = '';
+    lib.cat = '';
+    lib.pub = '';
+    lib.sort = 'new';
+    lib.dlOnly = false;
+    lib.favOnly = false;
+    lib.page = 1;
+    var qEl = document.getElementById('lib-q');
+    if(qEl) qEl.value = '';
+    var pubEl = document.getElementById('lib-pub');
+    if(pubEl) pubEl.value = '';
+    var sortEl = document.getElementById('lib-sort');
+    if(sortEl) sortEl.value = 'new';
+    refreshLib();
+  }
+  else if(a==='remove-filter'){
+    var fType = t.getAttribute('data-type');
+    if(fType === 'pub') lib.pub = '';
+    else if(fType === 'cat') lib.cat = '';
+    else if(fType === 'dl') lib.dlOnly = false;
+    else if(fType === 'sort') lib.sort = 'new';
+    else if(fType === 'q'){
+      lib.q = '';
+      var qEl2 = document.getElementById('lib-q');
+      if(qEl2) qEl2.value = '';
+    }
+    lib.page = 1;
+    refreshLib();
   }
   else if(a==='cat'){
     lib.cat = (lib.cat === v && v !== '') ? '' : v;
@@ -7538,6 +7764,7 @@ $app.addEventListener('change',function(e){
   if(e.target.id==='f-img'){pickImg(e.target.files&&e.target.files[0]);return;}
   if(e.target.id==='prof-avatar-file'){pickProfileAvatar(e.target.files&&e.target.files[0]);return;}
   if(e.target.id==='lib-sort'){lib.sort=e.target.value;lib.page=1;refreshLib();}
+  if(e.target.id==='lib-pub'){lib.pub=e.target.value;lib.page=1;refreshLib();}
   if(e.target.id==='quote-book'){
     var selT = e.target.value.trim();
     var mb = S.books.filter(function(b){ return b.title.toLowerCase() === selT.toLowerCase(); })[0];
