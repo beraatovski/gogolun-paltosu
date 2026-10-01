@@ -5519,9 +5519,9 @@ function header(p){
     + '</button>'
     + '<div class="nav-dropdown-menu">'
     + '<a href="kitaplar.html"' + ((p[0]==='kitaplar'||p[0]==='kitap'||p[0]==='okuma-listem') ? ' class="on"' : '') + '><span class="nav-sub-icon">📚</span><span class="nav-sub-title">Kitaplar & Okuma Listem</span>' + favBadge + '</a>'
-    + '<a href="kamp.html"' + (p[0]==='kamp'||p[0]==='tartisma'||p[0]==='okuma-kampi' ? ' class="on"' : '') + '><span class="nav-sub-icon">⛺</span><span class="nav-sub-title">Okuma Kampı & Tahliller</span></a>'
-    + '<a href="alintilar.html"' + on('alintilar') + '><span class="nav-sub-icon">💬</span><span class="nav-sub-title">Alıntılar</span></a>'
-    + '<a href="sozluk.html"' + (p[0]==='sozluk'||p[0]==='kavramlar' ? ' class="on"' : '') + '><span class="nav-sub-icon">📖</span><span class="nav-sub-title">Sözlük</span></a>'
+    + '<a href="kamp.html"' + (p[0]==='kamp'||p[0]==='tartisma'||p[0]==='okuma-kampi' ? ' class="on"' : '') + '><span class="nav-sub-icon">⛺</span><span class="nav-sub-title">Okuma Kampı</span></a>'
+    + '<a href="alintilar.html"' + on('alintilar') + '><span class="nav-sub-icon">💬</span><span class="nav-sub-title">Edebi Alıntılar</span></a>'
+    + '<a href="sozluk.html"' + (p[0]==='sozluk'||p[0]==='kavramlar' ? ' class="on"' : '') + '><span class="nav-sub-icon">📖</span><span class="nav-sub-title">Kavramlar Sözlüğü</span></a>'
     + '</div>'
     + '</div>';
 
@@ -5566,9 +5566,9 @@ function header(p){
    +booksDropdownHTML
    +'<a href="meydan-okuma.html"'+on('meydan-okuma')+'>Meydan Okuma</a>'
    +'<a href="test.html"'+(p[0]==='test'||p[0]==='quiz'?' class="on"':'')+'>Edebi Testler</a>'
-   +'<a href="hakkinda.html"'+on('hakkinda')+'>Hakkında</a>'
+   +'<a href="hakkinda.html"'+on('hakkinda')+'>Kulüp Hakkında</a>'
    +(curUser?'<a href="profil.html"'+on('hesabim')+'>Hesabım</a>':'')
-   +(canEdit?'<a href="yonetim.html"'+on('yonetim')+'>Yönetim</a>':'')
+   +(canEdit?'<a href="yonetim.html"'+on('yonetim')+'>Yönetim Paneli</a>':'')
    +'<button data-a="theme" aria-label="Temayı değiştir" title="Açık / koyu tema">◐</button>'
    +userSectionDesktop
    +'</nav>'
@@ -6045,7 +6045,7 @@ function about(){
     + '</div>'
     + '</div>';
 
-  return '<section class="page"><h1 class="ptitle">Hakkında</h1><div class="about">'+String(S.site.about||'').split(/\n{2,}/).map(function(p){return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>';}).join('')+'</div>'
+  return '<section class="page"><h1 class="ptitle">Kulüp Hakkında</h1><div class="about">'+String(S.site.about||'').split(/\n{2,}/).map(function(p){return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>';}).join('')+'</div>'
    + contactBox
    + '</section>';
 }
@@ -6841,6 +6841,8 @@ function render(){
     var qItem = LITERARY_QUIZZES.filter(function(x){return x.id===p[1];})[0];
     if(qItem) pageTitle = qItem.title + ' — ' + S.site.name;
     else pageTitle = 'Edebi Testler — ' + S.site.name;
+  } else if(p[0]==='hakkinda') {
+    pageTitle = 'Kulüp Hakkında — ' + S.site.name;
   } else if(p[0]==='hesabim'||p[0]==='profil'||p[0]==='kullanici'||p[0]==='u') {
     pageTitle = 'Okur Profili — ' + S.site.name;
   } else if(p[0]==='yonetim') {
@@ -6906,6 +6908,9 @@ document.addEventListener('click',function(e){
           else if (targetBase === 'meydan-okuma.html') navMsg = 'Meydan Okumalar Hazırlanıyor...';
           else if (targetBase === 'kamp.html') navMsg = 'Okuma Kampı Tartışması Yükleniyor...';
           else if (targetBase === 'test.html') navMsg = 'Edebi Testler Yükleniyor...';
+          else if (targetBase === 'hakkinda.html') navMsg = 'Kulüp Hakkında Bilgileri Yükleniyor...';
+          else if (targetBase === 'profil.html') navMsg = 'Okur Profili Yükleniyor...';
+          else if (targetBase === 'yonetim.html') navMsg = 'Yönetim Paneli Açılıyor...';
           else if (targetBase === 'index.html') navMsg = 'Ana Sayfaya Dönülüyor...';
           navigateToPage(href, navMsg);
           return;
