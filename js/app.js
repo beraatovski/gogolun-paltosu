@@ -87,6 +87,71 @@ function storeUser(user) {
   } catch(e) {}
 }
 
+/* ---------- Supabase Bulut VeritabanÄ± EÅŸitleme (Cloud Backend Sync) ---------- */
+async function syncCloudReviews() {
+  if (!supa) return;
+  try {
+    var res = await supa.from('book_reviews').select('*').order('created_at', { ascending: false });
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      var localRaw = localStorage.getItem('gp-book-reviews');
+      var localList = localRaw ? JSON.parse(localRaw) : [];
+      var map = {};
+      res.data.forEach(function(r) { map[r.id] = r; });
+      localList.forEach(function(r) { if (!map[r.id]) map[r.id] = r; });
+      var merged = Object.values(map);
+      localStorage.setItem('gp-book-reviews', JSON.stringify(merged));
+    }
+  } catch(e) {}
+}
+
+async function syncCloudCampComments() {
+  if (!supa) return;
+  try {
+    var res = await supa.from('camp_comments').select('*').order('created_at', { ascending: true });
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      var localRaw = localStorage.getItem('gp-camp-comments');
+      var localList = localRaw ? JSON.parse(localRaw) : [];
+      var map = {};
+      res.data.forEach(function(c) { map[c.id] = c; });
+      localList.forEach(function(c) { if (!map[c.id]) map[c.id] = c; });
+      var merged = Object.values(map);
+      localStorage.setItem('gp-camp-comments', JSON.stringify(merged));
+    }
+  } catch(e) {}
+}
+
+async function syncCloudCampParticipants() {
+  if (!supa) return;
+  try {
+    var res = await supa.from('camp_participants').select('*');
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      var localRaw = localStorage.getItem('gp-camp-participants');
+      var localList = localRaw ? JSON.parse(localRaw) : [];
+      var map = {};
+      res.data.forEach(function(p) { map[p.id || p.username] = p; });
+      localList.forEach(function(p) { if (!map[p.id || p.username]) map[p.id || p.username] = p; });
+      var merged = Object.values(map);
+      localStorage.setItem('gp-camp-participants', JSON.stringify(merged));
+    }
+  } catch(e) {}
+}
+
+async function syncCloudQuotes() {
+  if (!supa) return;
+  try {
+    var res = await supa.from('community_quotes').select('*').order('created_at', { ascending: false });
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      var localRaw = localStorage.getItem('gp-custom-quotes');
+      var localList = localRaw ? JSON.parse(localRaw) : [];
+      var map = {};
+      res.data.forEach(function(q) { map[q.id] = q; });
+      localList.forEach(function(q) { if (!map[q.id]) map[q.id] = q; });
+      var merged = Object.values(map);
+      localStorage.setItem('gp-custom-quotes', JSON.stringify(merged));
+    }
+  } catch(e) {}
+}
+
 var curUser = getStoredUser();
 var authTab = 'login';
 
@@ -332,7 +397,24 @@ function saveUserQuote(text, author, book, page) {
       s: newQ.book || ''
     });
 
-    // 4. Giriş yapılmışsa üye bulut hesabına da eşitle
+    // 4. Giriş yapılmışsa üye bulut hesabına ve genel veritabanına eşitle
+    if (supa) {
+      try {
+        var uid = (curUser && curUser.id && curUser.id.indexOf('admin-') < 0 && curUser.id.indexOf('member_') < 0) ? curUser.id : null;
+        supa.from('community_quotes').insert({
+          id: newQ.id,
+          text: newQ.text,
+          author: newQ.author,
+          book: newQ.book,
+          page: newQ.page,
+          user_id: uid,
+          user_name: newQ.user_name,
+          username: newQ.username,
+          avatar_url: newQ.avatar_url,
+          created_at: newQ.created_at
+        }).then(function(){}).catch(function(err){ console.warn('Supabase quote insert error:', err); });
+      } catch(e){}
+    }
     if (curUser && supa) {
       try {
         var uMeta = Object.assign({}, curUser.user_metadata || {});
@@ -391,6 +473,9 @@ function deleteQuote(id) {
     }
     DEFAULT_QUOTES = DEFAULT_QUOTES.filter(function(q){ return q.id !== id; });
 
+    if (supa) {
+      try { supa.from('community_quotes').delete().eq('id', id).catch(function(){}); } catch(e){}
+    }
     if (curUser && supa && curUser.user_metadata && Array.isArray(curUser.user_metadata.quotes)) {
       try {
         var uMeta = Object.assign({}, curUser.user_metadata || {});
@@ -537,6 +622,23 @@ function addReview(bookId, rating, comment) {
   try {
     localStorage.setItem('gp-book-reviews', JSON.stringify(revs));
   } catch(e){}
+  if (supa) {
+    try {
+      var uid = (curUser && curUser.id && curUser.id.indexOf('admin-') < 0 && curUser.id.indexOf('member_') < 0) ? curUser.id : null;
+      supa.from('book_reviews').insert({
+        id: newRev.id,
+        book_id: newRev.book_id,
+        user_id: uid,
+        user_name: newRev.user_name,
+        username: newRev.username,
+        email: newRev.email,
+        avatar_url: newRev.avatar_url,
+        rating: newRev.rating,
+        comment: newRev.comment,
+        created_at: newRev.created_at
+      }).then(function(){}).catch(function(err){ console.warn('Supabase review insert error:', err); });
+    } catch(e){}
+  }
   return newRev;
 }
 
@@ -970,6 +1072,23 @@ function joinCampDiscussion(status) {
     curUser.user_metadata.camp_status = sText;
     curUser.user_metadata.camp_joined_at = now;
   }
+  if (supa) {
+    try {
+      var uid = (curUser && curUser.id && curUser.id.indexOf('admin-') < 0 && curUser.id.indexOf('member_') < 0) ? curUser.id : null;
+      supa.from('camp_participants').upsert({
+        id: pObj.id,
+        camp_id: 'camp_2026_ekim',
+        user_id: uid,
+        username: pObj.username,
+        full_name: pObj.full_name,
+        avatar_url: pObj.avatar_url,
+        role: (canEdit ? 'admin' : 'member'),
+        status: pObj.status,
+        notes: pObj.notes,
+        created_at: pObj.joined_at
+      }, { onConflict: 'camp_id,username' }).then(function(){}).catch(function(err){ console.warn('Supabase camp participant upsert error:', err); });
+    } catch(e){}
+  }
   return true;
 }
 
@@ -993,6 +1112,11 @@ function leaveCampDiscussion() {
   }
   if(curUser.user_metadata){
     curUser.user_metadata.camp_joined = false;
+  }
+  if (supa && uName) {
+    try {
+      supa.from('camp_participants').delete().eq('camp_id', 'camp_2026_ekim').eq('username', uName).then(function(){}).catch(function(){});
+    } catch(e){}
   }
   return true;
 }
@@ -1058,6 +1182,22 @@ function saveCampComment(text) {
     saved.push(newC);
     localStorage.setItem('gp-camp-comments', JSON.stringify(saved));
   } catch(e){}
+  if (supa) {
+    try {
+      var uid = (curUser && curUser.id && curUser.id.indexOf('admin-') < 0 && curUser.id.indexOf('member_') < 0) ? curUser.id : null;
+      supa.from('camp_comments').insert({
+        id: newC.id,
+        camp_id: 'camp_2026_ekim',
+        user_id: uid,
+        user_name: newC.user_name,
+        username: newC.username,
+        avatar_url: newC.avatar_url,
+        role: (canEdit ? 'admin' : 'member'),
+        text: newC.text,
+        created_at: newC.created_at
+      }).then(function(){}).catch(function(err){ console.warn('Supabase camp comment insert error:', err); });
+    } catch(e){}
+  }
   return true;
 }
 
@@ -4360,6 +4500,22 @@ function handleUserSession(user) {
   if (user) {
     var uMeta = user.user_metadata || {};
     var isAdm = canEdit || uMeta.role === 'admin' || (user.email && user.email.indexOf('gogolunpaltosu') >= 0);
+    if (supa && user.id && user.id.indexOf('admin-') < 0 && user.id.indexOf('member_') < 0) {
+      try {
+        supa.from('profiles').upsert({
+          id: user.id,
+          email: user.email,
+          username: uMeta.username || (user.email ? user.email.split('@')[0] : 'okur'),
+          full_name: uMeta.full_name || 'Edebiyat Okuru',
+          avatar_url: uMeta.avatar_url || '',
+          role: isAdm ? 'admin' : 'member',
+          reading_list: uMeta.reading_list || favs,
+          badges: uMeta.badges || [],
+          challenges: uMeta.challenges || [],
+          quotes: uMeta.quotes || []
+        }).then(function(){}).catch(function(){});
+      } catch(e){}
+    }
     addMemberToRegistry({
       id: user.id,
       email: user.email,
@@ -5917,13 +6073,17 @@ function adminMembers(){
 
     + '<div class="notice" style="margin-top:28px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" data-a="toggle-cloud-guide">'
-    + '<span>☁️ <b>Supabase Canlı Veritabanı Eşitlemesi:</b> Sitenize kaydolan tüm üyeler otomatik olarak bu listeye eklenir.</span>'
-    + '<span style="color:var(--accent);font-weight:600;font-size:.85rem">Detay & SQL ▾</span>'
+    + '<span>☁️ <b>Supabase Canlı Veritabanı & Backend Şeması:</b> Üyeler, kitap incelemeleri, kamp forumu ve alıntılar için tek tıkla kurulum.</span>'
+    + '<span style="color:var(--accent);font-weight:600;font-size:.85rem">Backend Kurulumu & SQL ▾</span>'
     + '</div>'
-    + '<div id="cloud-guide-content" style="display:none;margin-top:12px;font-size:.85rem;line-height:1.6">'
-    + 'Supabase panonuzdaki (<a href="https://supabase.com/dashboard" target="_blank" rel="noopener">dashboard</a>) tüm <code>auth.users</code> kayıtlarını tek tıkla buraya çekmek için, Supabase <b>SQL Editor</b> sekmesine aşağıdaki kodu yapıştırıp <b>RUN</b> düğmesine basmanız yeterlidir:<br><br>'
-    + '<pre style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;font-size:.82rem;user-select:all">create or replace function get_all_members()\nreturns table (\n  id uuid,\n  email text,\n  created_at timestamptz,\n  raw_user_meta_data jsonb\n) security definer as $$\n  select id, email, created_at, raw_user_meta_data from auth.users order by created_at desc;\n$$ language sql;</pre>'
-    + 'Bu SQL fonksiyonunu ekledikten sonra yukarıdaki "↻ Listeyi Yenile" düğmesine basıldığında Supabase veritabanındaki tüm üyeler canlı olarak buraya aktarılır.'
+    + '<div id="cloud-guide-content" style="display:none;margin-top:14px;font-size:.88rem;line-height:1.6">'
+    + '<p>Sitenizin canlı veritabanını (<code>profiles</code>, <code>book_reviews</code>, <code>camp_comments</code>, <code>camp_participants</code>, <code>community_quotes</code>) tek seferde kurmak için aşağıdaki SQL kodunu Supabase <b>SQL Editor</b> sekmesine yapıştırıp <b>RUN</b> demeniz yeterlidir:</p>'
+    + '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">'
+    + '<button class="btn small" data-a="copy-backend-sql" style="background:var(--accent);color:#fff">📋 Tam SQL Şemasını Kopyala</button>'
+    + '<a class="btn ghost small" href="https://supabase.com/dashboard/project/epvpzfmvdakryixghdhk/sql/new" target="_blank" rel="noopener">Supabase SQL Editor Aç ↗</a>'
+    + '</div>'
+    + '<pre style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;max-height:240px;font-size:.8rem;user-select:all">create or replace function get_all_members()\nreturns table (\n  id uuid,\n  email text,\n  created_at timestamptz,\n  raw_user_meta_data jsonb\n) security definer as $$\n  select id, email, created_at, raw_user_meta_data from auth.users order by created_at desc;\n$$ language sql;\n\ncreate or replace function get_email_by_username(p_username text)\nreturns text security definer as $$\ndeclare\n  found_email text;\nbegin\n  select email into found_email from public.profiles where lower(username) = lower(trim(replace(p_username, \'@\', \'\'))) limit 1;\n  if found_email is not null then return found_email; end if;\n  select email into found_email from auth.users where lower(raw_user_meta_data->>\'username\') = lower(trim(replace(p_username, \'@\', \'\'))) limit 1;\n  return found_email;\nend;\n$$ language plpgsql;</pre>'
+    + '<p style="font-size:.82rem;color:var(--ink-soft);margin-top:8px">Ayrıntılı tablolar ve tam şema için projenizdeki <code>supabase_schema.sql</code> ve <code>SUPABASE_KURULUM.md</code> dosyalarını inceleyebilirsiniz.</p>'
     + '</div>'
     + '</div>'
     + '</section>';
@@ -6712,6 +6872,16 @@ document.addEventListener('click',function(e){
     var gEl=document.getElementById('cloud-guide-content');
     if(gEl) gEl.style.display=(gEl.style.display==='none'||!gEl.style.display)?'block':'none';
   }
+  else if(a==='copy-backend-sql'){
+    var pre = document.querySelector('#cloud-guide-content pre');
+    if (pre && navigator.clipboard) {
+      navigator.clipboard.writeText(pre.textContent).then(function(){
+        toast('SQL şeması panoya kopyalandı! Supabase SQL Editor\'e yapıştırabilirsiniz. 📋');
+      }).catch(function(){
+        toast('Lütfen SQL kutusundaki metni seçip kopyalayın.');
+      });
+    }
+  }
   else if(a==='toggle-member-role'){
     var mems=getAdminMembersList();
     var target=mems.find(function(m){return (m.id===id||m.username===id||m.email===id);});
@@ -7456,6 +7626,12 @@ async function init(){
   }
 
   if(supa){
+    try{
+      syncCloudReviews();
+      syncCloudCampComments();
+      syncCloudCampParticipants();
+      syncCloudQuotes();
+    } catch(e){}
     try{
       var sRes=await supa.auth.getSession();
       if(sRes&&sRes.data&&sRes.data.session&&sRes.data.session.user){
