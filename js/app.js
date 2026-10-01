@@ -37,6 +37,15 @@ function hidePageLoader() {
   }, 180);
 }
 
+// Otomatik guvenlik: Yukleme ekrani hicbir kosulda takili kalmasin
+setTimeout(function(){ hidePageLoader(); }, 600);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(hidePageLoader, 100);
+} else {
+  window.addEventListener('DOMContentLoaded', function(){ setTimeout(hidePageLoader, 150); });
+  window.addEventListener('load', function(){ setTimeout(hidePageLoader, 100); });
+}
+
 function navigateToPage(url, msg) {
   if (typeof closeMobileMenu === 'function') closeMobileMenu();
   showPageLoader(msg || 'Sayfa Yükleniyor...');
@@ -7769,8 +7778,13 @@ async function init(){
     curUser = getStoredUser();
     updateAdminStatus();
   }
-  onRoute();
-  hidePageLoader();
+  try {
+    onRoute();
+  } catch(e) {
+    console.error('onRoute error:', e);
+  } finally {
+    hidePageLoader();
+  }
   var rawHash = window.location.hash || '';
   var rawSearch = window.location.search || '';
   var isSignupConfirm = (rawHash.indexOf('type=signup') >= 0 || rawSearch.indexOf('type=signup') >= 0);
