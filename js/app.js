@@ -38,6 +38,7 @@ function hidePageLoader() {
 }
 
 function navigateToPage(url, msg) {
+  if (typeof closeMobileMenu === 'function') closeMobileMenu();
   showPageLoader(msg || 'Sayfa Yükleniyor...');
   setTimeout(function() {
     window.location.href = url;
@@ -5390,10 +5391,37 @@ function card(b){
    +'<a class="card" href="kitap.html?id='+encodeURIComponent(b.id)+'">'+cover(b)+'<h3>'+esc(b.title)+(b.status==='draft'?'<span class="draft-tag">Taslak</span>':'')+dlBadge+stBadge+'</h3><p class="by">'+esc(b.author)+'</p><p class="meta">'+esc(b.category||'')+(b.year?' · '+esc(b.year):'')+(b.publisher?' · '+esc(b.publisher):'')+'</p></a>'
    +'</div>';
 }
+function toggleMobileMenu(){
+  var d = document.getElementById('mobile-drawer');
+  var b = document.getElementById('mobile-drawer-backdrop');
+  if(!d) return;
+  var isOpen = d.classList.contains('open');
+  if(isOpen){
+    closeMobileMenu();
+  } else {
+    d.classList.add('open');
+    if(b) b.classList.add('open');
+    document.body.classList.add('mobile-menu-active');
+    var btn = document.querySelector('.mobile-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  }
+}
+function closeMobileMenu(){
+  var d = document.getElementById('mobile-drawer');
+  var b = document.getElementById('mobile-drawer-backdrop');
+  if(d) d.classList.remove('open');
+  if(b) b.classList.remove('open');
+  document.body.classList.remove('mobile-menu-active');
+  var btn = document.querySelector('.mobile-menu-btn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
 function header(p){
   var on=function(k){return p[0]===k?' class="on"':'';};
   var favBadge=favs.length?'<span class="badge">'+favs.length+'</span>':'';
-  var userSection='';
+  var userSectionDesktop='';
+  var userSectionMobile='';
+
   if(curUser){
     var meta=curUser.user_metadata||{};
     var uName=meta.username ? ('@'+meta.username) : (meta.full_name||curUser.email.split('@')[0]);
@@ -5401,9 +5429,22 @@ function header(p){
     var uAvatar=meta.avatar_url
       ? '<span class="user-chip-avatar" style="background-image:url('+esc(meta.avatar_url)+')"></span>'
       : '<span style="opacity:.8">👤</span>';
-    userSection='<a href="profil.html" class="user-chip'+(p[0]==='hesabim'?' on':'')+'" title="'+esc(uTitle)+'">'+uAvatar+'<span class="user-name">'+esc(uName)+'</span></a><button class="user-logout-btn" data-a="logout" title="Çıkış Yap">Çıkış</button>';
+    userSectionDesktop='<a href="profil.html" class="user-chip'+(p[0]==='hesabim'?' on':'')+'" title="'+esc(uTitle)+'">'+uAvatar+'<span class="user-name">'+esc(uName)+'</span></a><button class="user-logout-btn" data-a="logout" title="Çıkış Yap">Çıkış</button>';
+
+    userSectionMobile='<div class="drawer-user-card">'
+      +'<a href="profil.html" class="drawer-user-info" data-a="close-mobile-menu">'
+      +'<span class="drawer-user-avatar">'+(meta.avatar_url ? '<img src="'+esc(meta.avatar_url)+'" alt="">' : '👤')+'</span>'
+      +'<div class="drawer-user-text"><strong class="drawer-user-name">'+esc(meta.full_name||uName)+'</strong><span class="drawer-user-handle">'+esc(uName)+'</span></div>'
+      +'</a>'
+      +'<button class="drawer-logout-btn" data-a="logout" title="Çıkış Yap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Çıkış</button>'
+      +'</div>';
   } else {
-    userSection='<button class="nav-auth-btn" data-a="open-auth" title="Giriş yap veya üye ol"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Giriş / Üye Ol</button>';
+    userSectionDesktop='<button class="nav-auth-btn" data-a="open-auth" title="Giriş yap veya üye ol"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Giriş / Üye Ol</button>';
+
+    userSectionMobile='<div class="drawer-guest-card">'
+      +'<p class="drawer-guest-text">Okuma hedeflerinizi kaydetmek ve tahlillere katılmak için giriş yapın.</p>'
+      +'<button class="btn" data-a="open-auth" style="width:100%;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Giriş Yap / Üye Ol</button>'
+      +'</div>';
   }
 
   var isBooksGroup = ['kitaplar','kitap','okuma-listem','alintilar','sozluk','kavramlar'].indexOf(p[0]) >= 0;
@@ -5421,7 +5462,43 @@ function header(p){
     + '</div>'
     + '</div>';
 
-  return '<header class="top"><div class="bar"><a class="brand" href="index.html">'+EMB+'<span>'+esc(S.site.name)+'</span></a><nav>'
+  var mobileNavDrawerHTML = '<div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" data-a="close-mobile-menu"></div>'
+    + '<div id="mobile-drawer" class="mobile-drawer" aria-label="Mobil Menü">'
+    + '<div class="drawer-header">'
+    + '<a class="drawer-brand" href="index.html" data-a="close-mobile-menu">' + EMB + '<span>' + esc(S.site.name) + '</span></a>'
+    + '<button class="drawer-close-btn" data-a="close-mobile-menu" aria-label="Menüyü Kapat">&times;</button>'
+    + '</div>'
+    + '<div class="drawer-body">'
+    + userSectionMobile
+    + '<nav class="drawer-nav">'
+    + '<div class="drawer-nav-label">Sayfalar</div>'
+    + '<a href="index.html"' + (p[0]==='' ? ' class="on"' : '') + '><span class="drawer-icon">🏠</span><span>Ana Sayfa</span></a>'
+    + '<a href="kitaplar.html"' + ((p[0]==='kitaplar'||p[0]==='kitap'||p[0]==='okuma-listem') ? ' class="on"' : '') + '><span class="drawer-icon">📚</span><span>Kitaplar & Okuma Listem</span>' + favBadge + '</a>'
+    + '<a href="kamp.html"' + on('kamp') + '><span class="drawer-icon">⛺</span><span>Okuma Kampı</span></a>'
+    + '<a href="alintilar.html"' + on('alintilar') + '><span class="drawer-icon">💬</span><span>Edebi Alıntılar</span></a>'
+    + '<a href="sozluk.html"' + (p[0]==='sozluk'||p[0]==='kavramlar' ? ' class="on"' : '') + '><span class="drawer-icon">📖</span><span>Kavramlar Sözlüğü</span></a>'
+    + '<a href="meydan-okuma.html"' + on('meydan-okuma') + '><span class="drawer-icon">🎯</span><span>Meydan Okuma</span></a>'
+    + '<a href="test.html"' + (p[0]==='test'||p[0]==='quiz' ? ' class="on"' : '') + '><span class="drawer-icon">🎭</span><span>Edebi Testler</span></a>'
+    + '<a href="hakkinda.html"' + on('hakkinda') + '><span class="drawer-icon">ℹ️</span><span>Kulüp Hakkında</span></a>'
+    + (curUser ? '<a href="profil.html"' + on('hesabim') + '><span class="drawer-icon">👤</span><span>Hesabım</span></a>' : '')
+    + (canEdit ? '<a href="yonetim.html"' + on('yonetim') + ' class="drawer-admin-link' + (p[0]==='yonetim' ? ' on' : '') + '"><span class="drawer-icon">⚙️</span><span>Yönetim Paneli</span></a>' : '')
+    + '</nav>'
+    + '</div>'
+    + '<div class="drawer-footer">'
+    + '<button class="drawer-theme-btn" data-a="theme"><span class="drawer-theme-icon">◐</span><span>Görünüm Modunu Değiştir</span></button>'
+    + '</div>'
+    + '</div>';
+
+  var mobileTopCtrls = '<div class="nav-mobile-ctrls">'
+    + (curUser ? '<a href="profil.html" class="nav-mobile-user-btn" title="Hesabım">' + (curUser.user_metadata&&curUser.user_metadata.avatar_url ? '<span class="nav-mobile-avatar" style="background-image:url('+esc(curUser.user_metadata.avatar_url)+')"></span>' : '👤') + '</a>'
+               : '<button class="nav-mobile-auth-btn" data-a="open-auth" title="Giriş / Kayıt"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>')
+    + '<button class="mobile-menu-btn" data-a="toggle-mobile-menu" aria-label="Menüyü Aç" aria-expanded="false">'
+    + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>'
+    + '</button>'
+    + '</div>';
+
+  return '<header class="top"><div class="bar"><a class="brand" href="index.html">'+EMB+'<span>'+esc(S.site.name)+'</span></a>'
+   +'<nav class="nav-desktop">'
    +'<a href="index.html"'+(p[0]===''?' class="on"':'')+'>Ana Sayfa</a>'
    +booksDropdownHTML
    +'<a href="meydan-okuma.html"'+on('meydan-okuma')+'>Meydan Okuma</a>'
@@ -5430,8 +5507,12 @@ function header(p){
    +(curUser?'<a href="profil.html"'+on('hesabim')+'>Hesabım</a>':'')
    +(canEdit?'<a href="yonetim.html"'+on('yonetim')+'>Yönetim</a>':'')
    +'<button data-a="theme" aria-label="Temayı değiştir" title="Açık / koyu tema">◐</button>'
-   +userSection
-   +'</nav></div></header>';
+   +userSectionDesktop
+   +'</nav>'
+   +mobileTopCtrls
+   +'</div>'
+   +mobileNavDrawerHTML
+   +'</header>';
 }
 function footer(){
   var yt=safeUrl(S.site.youtube), ig=safeUrl(S.site.instagram), em=S.site.email?S.site.email.trim():'';
@@ -6732,6 +6813,7 @@ function refreshLib(){
 window.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     closeReaderMode();
+    if(typeof closeMobileMenu === 'function') closeMobileMenu();
     document.querySelectorAll('.nav-dropdown.open').forEach(function(el){ el.classList.remove('open'); });
   }
 });
@@ -6739,6 +6821,9 @@ document.addEventListener('click',function(e){
   // Sayfa gecislerini yakala ve yukleme suresi/animasyonu uygula
   var linkEl = e.target.closest('a');
   if (linkEl && !e.defaultPrevented) {
+    if (typeof closeMobileMenu === 'function' && linkEl.closest('#mobile-drawer')) {
+      closeMobileMenu();
+    }
     var href = linkEl.getAttribute('href');
     if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('javascript:') && linkEl.target !== '_blank') {
       if (href.indexOf('.html') >= 0) {
@@ -6784,7 +6869,17 @@ document.addEventListener('click',function(e){
   }
   var t=e.target.closest('[data-a]');if(!t)return;
   var a=t.getAttribute('data-a'),v=t.getAttribute('data-v'),id=t.getAttribute('data-id');
-  if(a==='toggle-nav-dropdown'){
+  if(a==='toggle-mobile-menu'){
+    e.preventDefault();
+    toggleMobileMenu();
+    return;
+  }
+  else if(a==='close-mobile-menu'){
+    e.preventDefault();
+    closeMobileMenu();
+    return;
+  }
+  else if(a==='toggle-nav-dropdown'){
     e.preventDefault();
     e.stopPropagation();
     var drp = t.closest('.nav-dropdown');
@@ -6907,6 +7002,9 @@ document.addEventListener('click',function(e){
         localM=localM.filter(function(m){return m.id!==id&&m.username!==id&&m.email!==id;});
         localStorage.setItem('gp-members',JSON.stringify(localM));
       }catch(e){}
+      if(supa && target && target.id && target.id.length > 20){
+        supa.from('profiles').delete().eq('id', target.id).then(function(){}).catch(function(){});
+      }
       render();
       toast('Üye listeden silindi.');
     });
