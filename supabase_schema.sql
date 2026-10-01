@@ -1,11 +1,11 @@
 -- ============================================================================
 -- GOGOL'UN PALTOSU (gogolunpaltosu.com)
--- SUPABASE TAM VERİTABANI VE BACKEND ŞEMASI (PRODUCTION SCHEMA)
+-- SUPABASE TAM VERİTABANI VE BACKEND ŞEMASI (PRODUCTION SCHEMA - HATASIZ SÜRÜM)
 -- ============================================================================
 -- Bu dosyayı Supabase Dashboard'unuzdaki (https://supabase.com/dashboard)
 -- SQL Editor sekmesine yapıştırıp "RUN" düğmesine basarak tüm veritabanı
 -- tablolarını, tetikleyicileri (trigger), fonksiyonları ve güvenlik kurallarını (RLS)
--- tek seferde kurabilirsiniz.
+-- tek seferde ve hatasız kurabilirsiniz.
 -- ============================================================================
 
 -- 1. PROFILES TABLOSU (Kullanıcı Profilleri)
@@ -13,7 +13,7 @@
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   email text,
-  username text unique,
+  username text,
   full_name text default 'Edebiyat Okuru',
   avatar_url text default '',
   role text default 'member', -- 'admin' veya 'member'
@@ -27,8 +27,24 @@ create table if not exists public.profiles (
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );
 
+-- Eski kısıtlamaları kaldır (çakışmaları engellemek için)
+alter table public.profiles drop constraint if exists profiles_username_key;
+drop index if exists idx_profiles_username;
+
+-- Varsa profiles içindeki mükerrer kullanıcı adlarını otomatik benzersiz yap
+with dupes as (
+  select id, username,
+         row_number() over (partition by lower(username) order by created_at asc) as rn
+  from public.profiles
+  where username is not null and username <> ''
+)
+update public.profiles p
+set username = p.username || '_' || substring(replace(p.id::text, '-', ''), 1, 4)
+from dupes d
+where p.id = d.id and d.rn > 1;
+
 -- Profiles İndeksleri
-create index if not exists idx_profiles_username on public.profiles (lower(username));
+create unique index if not exists idx_profiles_username on public.profiles (lower(username));
 create index if not exists idx_profiles_email on public.profiles (lower(email));
 create index if not exists idx_profiles_role on public.profiles (role);
 
@@ -143,9 +159,11 @@ create table if not exists public.camp_participants (
   role text default 'member',
   status text default '🎯 Tartışmaya Katıldı · Okuyor',
   notes text default 'Okuma kampında yerini aldı.',
-  created_at timestamptz default timezone('utc'::text, now()) not null,
-  unique (camp_id, username)
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
+
+-- Camp Participants İndeksleri
+create unique index if not exists idx_camp_part_unique on public.camp_participants (camp_id, lower(username));
 
 -- Camp Participants RLS
 alter table public.camp_participants enable row level security;
@@ -263,12 +281,21 @@ $$ language plpgsql;
 create or replace function public.handle_new_user()
 returns trigger security definer as $$
 declare
-  default_username text;
+  candidate_username text;
+  final_username text;
   default_role text;
+  suffix int := 1;
 begin
-  default_username := lower(coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)));
+  candidate_username := lower(coalesce(nullif(trim(new.raw_user_meta_data->>'username'), ''), split_part(new.email, '@', 1), 'okur'));
+  final_username := candidate_username;
   
-  if new.email ilike '%gogolunpaltosu%' or default_username = 'gogolunpaltosu' then
+  -- Eğer username başka bir kullanıcı tarafından alınmışsa, çakışmayı önlemek için otomatik benzersiz yap
+  while exists (select 1 from public.profiles where lower(username) = final_username and id <> new.id) loop
+    suffix := suffix + 1;
+    final_username := candidate_username || '_' || suffix;
+  end loop;
+
+  if new.email ilike '%gogolunpaltosu%' or final_username = 'gogolunpaltosu' then
     default_role := 'admin';
   else
     default_role := coalesce(new.raw_user_meta_data->>'role', 'member');
@@ -279,7 +306,7 @@ begin
   ) values (
     new.id,
     new.email,
-    default_username,
+    final_username,
     coalesce(new.raw_user_meta_data->>'full_name', 'Edebiyat Okuru'),
     coalesce(new.raw_user_meta_data->>'avatar_url', ''),
     default_role,
@@ -290,7 +317,7 @@ begin
   )
   on conflict (id) do update set
     email = excluded.email,
-    username = coalesce(nullif(excluded.username, ''), profiles.username),
+    username = excluded.username,
     full_name = coalesce(nullif(excluded.full_name, ''), profiles.full_name),
     avatar_url = coalesce(nullif(excluded.avatar_url, ''), profiles.avatar_url),
     role = case when excluded.role = 'admin' then 'admin' else profiles.role end,
@@ -305,15 +332,41 @@ create trigger on_auth_user_created
   after insert or update on auth.users
   for each row execute function public.handle_new_user();
 
--- Mevcut auth.users kayıtlarını profiles tablosuna aktar (varsa)
+
+-- 9. MEVCUT AUTH.USERS KAYITLARINI ÇAKIŞMASIZ AKTAR
+-- auth.users içinde birden fazla hesap aynı kullanıcı adına sahip olsa bile asla hata vermez
+with numbered_auth as (
+  select 
+    u.id, 
+    u.email, 
+    lower(coalesce(nullif(trim(u.raw_user_meta_data->>'username'), ''), split_part(u.email, '@', 1), 'okur')) as base_uname,
+    coalesce(u.raw_user_meta_data->>'full_name', 'Edebiyat Okuru') as full_name,
+    coalesce(u.raw_user_meta_data->>'avatar_url', '') as avatar_url,
+    case when u.email ilike '%gogolunpaltosu%' or lower(coalesce(u.raw_user_meta_data->>'username','')) = 'gogolunpaltosu' then 'admin' else 'member' end as role,
+    coalesce(u.raw_user_meta_data->'reading_list', '[]'::jsonb) as reading_list,
+    row_number() over (
+      partition by lower(coalesce(nullif(trim(u.raw_user_meta_data->>'username'), ''), split_part(u.email, '@', 1), 'okur')) 
+      order by u.created_at asc
+    ) as rn
+  from auth.users u
+)
 insert into public.profiles (id, email, username, full_name, avatar_url, role, reading_list)
 select 
-  u.id, 
-  u.email, 
-  lower(coalesce(u.raw_user_meta_data->>'username', split_part(u.email, '@', 1))),
-  coalesce(u.raw_user_meta_data->>'full_name', 'Edebiyat Okuru'),
-  coalesce(u.raw_user_meta_data->>'avatar_url', ''),
-  case when u.email ilike '%gogolunpaltosu%' or lower(coalesce(u.raw_user_meta_data->>'username','')) = 'gogolunpaltosu' then 'admin' else 'member' end,
-  coalesce(u.raw_user_meta_data->'reading_list', '[]'::jsonb)
-from auth.users u
-on conflict (id) do nothing;
+  na.id, 
+  na.email, 
+  case 
+    when na.rn = 1 then na.base_uname 
+    else na.base_uname || '_' || substring(replace(na.id::text, '-', ''), 1, 4) 
+  end as username,
+  na.full_name,
+  na.avatar_url,
+  na.role,
+  na.reading_list
+from numbered_auth na
+on conflict (id) do update set
+  email = excluded.email,
+  username = excluded.username,
+  full_name = coalesce(nullif(excluded.full_name, ''), profiles.full_name),
+  avatar_url = coalesce(nullif(excluded.avatar_url, ''), profiles.avatar_url),
+  role = case when excluded.role = 'admin' then 'admin' else profiles.role end,
+  updated_at = now();
