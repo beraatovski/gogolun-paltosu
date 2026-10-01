@@ -5552,7 +5552,6 @@ function header(p){
     + '<a href="meydan-okuma.html"' + on('meydan-okuma') + '><span class="drawer-icon">🎯</span><span>Meydan Okuma</span></a>'
     + '<a href="test.html"' + (p[0]==='test'||p[0]==='quiz' ? ' class="on"' : '') + '><span class="drawer-icon">🎭</span><span>Edebi Testler</span></a>'
     + '<a href="hakkinda.html"' + on('hakkinda') + '><span class="drawer-icon">ℹ️</span><span>Kulüp Hakkında</span></a>'
-    + (curUser ? '<a href="profil.html"' + on('hesabim') + '><span class="drawer-icon">👤</span><span>Hesabım</span></a>' : '')
     + (canEdit ? '<a href="yonetim.html"' + on('yonetim') + ' class="drawer-admin-link' + (p[0]==='yonetim' ? ' on' : '') + '"><span class="drawer-icon">⚙️</span><span>Yönetim Paneli</span></a>' : '')
     + '</nav>'
     + '</div>'
@@ -5562,7 +5561,7 @@ function header(p){
     + '</div>';
 
   var mobileTopCtrls = '<div class="nav-mobile-ctrls">'
-    + (curUser ? '<a href="profil.html" class="nav-mobile-user-btn" title="Hesabım">' + (curUser.user_metadata&&curUser.user_metadata.avatar_url ? '<span class="nav-mobile-avatar" style="background-image:url('+esc(curUser.user_metadata.avatar_url)+')"></span>' : '👤') + '</a>'
+    + (curUser ? '<a href="profil.html" class="nav-mobile-user-btn" title="Profilim">' + (curUser.user_metadata&&curUser.user_metadata.avatar_url ? '<span class="nav-mobile-avatar" style="background-image:url('+esc(curUser.user_metadata.avatar_url)+')"></span>' : '👤') + '</a>'
                : '<button class="nav-mobile-auth-btn" data-a="open-auth" title="Giriş / Kayıt"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>')
     + '<button class="mobile-menu-btn" data-a="toggle-mobile-menu" aria-label="Menüyü Aç" aria-expanded="false">'
     + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>'
@@ -5576,7 +5575,6 @@ function header(p){
    +'<a href="meydan-okuma.html"'+on('meydan-okuma')+'>Meydan Okuma</a>'
    +'<a href="test.html"'+(p[0]==='test'||p[0]==='quiz'?' class="on"':'')+'>Edebi Testler</a>'
    +'<a href="hakkinda.html"'+on('hakkinda')+'>Kulüp Hakkında</a>'
-   +(curUser?'<a href="profil.html"'+on('hesabim')+'>Hesabım</a>':'')
    +(canEdit?'<a href="yonetim.html"'+on('yonetim')+'>Yönetim Paneli</a>':'')
    +'<button data-a="theme" aria-label="Temayı değiştir" title="Açık / koyu tema">◐</button>'
    +userSectionDesktop
