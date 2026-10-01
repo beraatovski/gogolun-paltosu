@@ -65,7 +65,29 @@ try {
   console.warn('Supabase başlatılamadı:', e);
 }
 
-var curUser = null;
+function getStoredUser() {
+  try {
+    var raw = localStorage.getItem('gp-auth-user');
+    if (!raw) return null;
+    var parsed = JSON.parse(raw);
+    if (parsed && (parsed.id || parsed.email)) return parsed;
+    return null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function storeUser(user) {
+  try {
+    if (user && (user.id || user.email)) {
+      localStorage.setItem('gp-auth-user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('gp-auth-user');
+    }
+  } catch(e) {}
+}
+
+var curUser = getStoredUser();
 var authTab = 'login';
 
 function syncFavsWithCloud(cloudList) {
@@ -532,7 +554,7 @@ function getUserReviews(ident) {
 
 function renderUserReviewsHTML(userReviews, isSelf) {
   if (!userReviews || !userReviews.length) {
-    return '<p class="empty" style="padding:16px 0">' + (isSelf ? 'Henüz hiçbir kitaba inceleme veya yorum yazmadınız.<br><br><a class="btn small" href="#/kitaplar">Kitapları İncele ve İlk Yorumunu Yaz →</a>' : 'Bu okur henüz hiçbir kitaba inceleme yazmamış.') + '</p>';
+    return '<p class="empty" style="padding:16px 0">' + (isSelf ? 'Henüz hiçbir kitaba inceleme veya yorum yazmadınız.<br><br><a class="btn small" href="kitaplar.html">Kitapları İncele ve İlk Yorumunu Yaz →</a>' : 'Bu okur henüz hiçbir kitaba inceleme yazmamış.') + '</p>';
   }
   return '<div class="review-list">' + userReviews.map(function(r){
     var book = S.books.filter(function(b){ return b.id === r.book_id; })[0];
@@ -549,7 +571,7 @@ function renderUserReviewsHTML(userReviews, isSelf) {
       + '<div style="display:flex;align-items:center;gap:12px">'
       + bookCover
       + '<div>'
-      + '<a href="#/kitap/' + encodeURIComponent(r.book_id) + '" style="font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink);text-decoration:none">📖 ' + esc(bookTitle) + '</a>'
+      + '<a href="kitap.html?id=' + encodeURIComponent(r.book_id) + '" style="font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink);text-decoration:none">📖 ' + esc(bookTitle) + '</a>'
       + (bookAuthor ? '<div style="font-size:.8rem;color:var(--ink-soft)">' + esc(bookAuthor) + '</div>' : '')
       + '</div>'
       + '</div>'
@@ -566,7 +588,7 @@ function renderUserReviewsHTML(userReviews, isSelf) {
 
 function renderUserQuotesHTML(userQuotes, isSelf) {
   if (!userQuotes || !userQuotes.length) {
-    return '<p class="empty" style="padding:16px 0">' + (isSelf ? 'Henüz hiçbir kitaptan alıntı paylaşmadınız.<br><br><a class="btn small" href="#/alintilar">Alıntılar Duvarına Git ve Alıntı Paylaş →</a>' : 'Bu okur henüz hiçbir kitaptan alıntı paylaşmamış.') + '</p>';
+    return '<p class="empty" style="padding:16px 0">' + (isSelf ? 'Henüz hiçbir kitaptan alıntı paylaşmadınız.<br><br><a class="btn small" href="alintilar.html">Alıntılar Duvarına Git ve Alıntı Paylaş →</a>' : 'Bu okur henüz hiçbir kitaptan alıntı paylaşmamış.') + '</p>';
   }
   return '<div class="quotes-wall-grid" style="margin:12px 0">' + userQuotes.map(function(q){
     var qId = q.id || '';
@@ -1048,7 +1070,7 @@ function renderUserCampBadgeHTML(ident) {
   if(!found) return '';
   var camp = getClubCamp();
   return '<div class="acc-section">'
-    + '<div class="acc-section-title"><span>Aktif Okuma Kampı & Tartışma Katılımı</span><a class="btn ghost small" href="#/kamp">Kampa Git 💬</a></div>'
+    + '<div class="acc-section-title"><span>Aktif Okuma Kampı & Tartışma Katılımı</span><a class="btn ghost small" href="kamp.html">Kampa Git 💬</a></div>'
     + '<div style="background:var(--paper-2);border:1px solid var(--accent);border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">'
     + '<div style="display:flex;align-items:center;gap:12px">'
     + '<span style="font-size:2rem">⛺</span>'
@@ -1057,7 +1079,7 @@ function renderUserCampBadgeHTML(ident) {
     + '<div style="font-size:.85rem;color:var(--ink-soft)">Durum: <b style="color:var(--accent)">' + esc(found.status || 'Kampa Katıldı') + '</b> · Katılım: ' + fmtDate(found.joined_at) + '</div>'
     + '</div>'
     + '</div>'
-    + '<a class="btn small" href="#/kamp">Tartışma Odasına Git 💬</a>'
+    + '<a class="btn small" href="kamp.html">Tartışma Odasına Git 💬</a>'
     + '</div>'
     + '</div>';
 }
@@ -1090,8 +1112,8 @@ function campDiscussionPage() {
         + '</div>'
         + '</div>'
         + '<div class="btns" style="margin:0;gap:10px">'
-        + '<a class="btn small" href="#/kitap/' + encodeURIComponent(camp.bookId) + '">📖 Konuşma Metnini Oku</a>'
-        + '<a class="btn ghost small" href="#camp-forum">💬 Fikrini Paylaş</a>'
+        + '<a class="btn small" href="kitap.html?id=' + encodeURIComponent(camp.bookId) + '">📖 Konuşma Metnini Oku</a>'
+        + '<a class="btn ghost small" href="kamp.html#camp-forum">💬 Fikrini Paylaş</a>'
         + '<button class="btn danger small ghost" data-a="leave-camp" title="Kamptan Ayrıl">Ayrıl</button>'
         + '</div>'
         + '</div>';
@@ -1209,7 +1231,7 @@ function campDiscussionPage() {
     + '</div>';
 
   return '<section class="page">'
-    + '<a class="back" href="#/">← Ana Sayfaya Dön</a>'
+    + '<a class="back" href="index.html">← Ana Sayfaya Dön</a>'
 
     + '<div class="camp-page-hero">'
     + '<span class="camp-badge">' + esc(camp.badge) + ' · AKTİF TARTIŞMA</span>'
@@ -1257,8 +1279,8 @@ function campDiscussionPage() {
     + '<div style="font-size:.85rem;color:var(--ink-soft)">Kitabın konuşma metnine, video kaydına ve e-kitap (EPUB/PDF) kaynaklarına hemen ulaşın.</div>'
     + '</div>'
     + '<div class="btns" style="margin:0">'
-    + '<a class="btn small" href="#/kitap/' + encodeURIComponent(camp.bookId) + '">📖 Eser Sayfasına Git</a>'
-    + '<a class="btn ghost small" href="#/alintilar">✨ Palto Alıntıları</a>'
+    + '<a class="btn small" href="kitap.html?id=' + encodeURIComponent(camp.bookId) + '">📖 Eser Sayfasına Git</a>'
+    + '<a class="btn ghost small" href="alintilar.html">✨ Palto Alıntıları</a>'
     + '</div>'
     + '</div>'
 
@@ -1331,7 +1353,7 @@ function renderDailyPassageHTML() {
     + likeBtn
     + '<button class="btn ghost small" data-a="next-passage" title="Rastgele başka bir klasik pasaj getir">🎲 Başka Pasaj</button>'
     + '<button class="btn small" data-a="card-gen" data-text="' + esc(p.text) + '" data-author="' + esc(p.author) + '" data-book="' + esc(p.book) + '" title="Instagram Story veya görsel kart üret">🖼️ Kart Oluştur</button>'
-    + (p.bookId ? '<a class="btn ghost small" href="#/kitap/' + encodeURIComponent(p.bookId) + '">Kitaba Git →</a>' : '')
+    + (p.bookId ? '<a class="btn ghost small" href="kitap.html?id=' + encodeURIComponent(p.bookId) + '">Kitaba Git →</a>' : '')
     + '</div>'
     + '</div>'
     + '</div>';
@@ -1566,7 +1588,7 @@ function glossaryPage() {
   });
 
   return '<section class="page">'
-    + '<a class="back" href="#/">← Ana Sayfaya Dön</a>'
+    + '<a class="back" href="index.html">← Ana Sayfaya Dön</a>'
     + '<div class="glossary-hero">'
     + '<h1 class="ptitle">🏷️ Edebi Kavramlar Sözlüğü</h1>'
     + '<p class="tag" style="max-width:620px;margin:0 auto 20px">Rus edebiyatında ve klasiklerde sıkça karşımıza çıkan terimler, unvanlar, felsefi akımlar ve tarihsel bağlamlar rehberi.</p>'
@@ -1854,7 +1876,7 @@ function renderUserChallengesHTML(userChs, userFavBooks, userBadges, isSelf) {
 
   if (!joinedList.length) {
     if (isSelf) {
-      return '<p class="empty" style="padding:14px 0">Henüz bir okuma meydan okumasına katılmadınız.<br><br><a class="btn small" href="#/meydan-okuma">🏆 Okuma Meydan Okumalarını Gör ve Katıl →</a></p>';
+      return '<p class="empty" style="padding:14px 0">Henüz bir okuma meydan okumasına katılmadınız.<br><br><a class="btn small" href="meydan-okuma.html">🏆 Okuma Meydan Okumalarını Gör ve Katıl →</a></p>';
     }
     return '<p class="empty" style="padding:14px 0">Bu okur henüz aktif bir okuma meydan okumasına katılmamış.</p>';
   }
@@ -1901,7 +1923,7 @@ function renderUserChallengesHTML(userChs, userFavBooks, userBadges, isSelf) {
           + '</div>'
           + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">'
           + '<span style="font-size:.76rem;color:var(--gold);font-weight:600">🏅 Rozet: ' + esc(ch.badge) + '</span>'
-          + '<a class="btn ghost small" href="#/meydan-okuma" style="font-size:.76rem;padding:3px 8px">Meydan Okuma →</a>'
+          + '<a class="btn ghost small" href="meydan-okuma.html" style="font-size:.76rem;padding:3px 8px">Meydan Okuma →</a>'
           + '</div>'
           + '</div>';
       }).join('')
@@ -1914,7 +1936,7 @@ function challengesPage() {
   var myFavs = S.books.filter(function(b){ return isFav(b.id); });
 
   return '<section class="page">'
-    + '<a class="back" href="#/">← Ana Sayfaya Dön</a>'
+    + '<a class="back" href="index.html">← Ana Sayfaya Dön</a>'
     + '<div class="glossary-hero">'
     + '<h1 class="ptitle">🏆 Okuma Meydan Okumaları</h1>'
     + '<p class="tag" style="max-width:640px;margin:0 auto 20px">Belirli temalardaki edebi hedefleri tamamlayarak hem okuma alışkanlığınızı derinleştirin hem de profilinize özel kulüp rozetleri kazanın.</p>'
@@ -1993,7 +2015,7 @@ function challengesPage() {
           + '</div>'
           + '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
           + actionBtnsHTML
-          + '<a class="btn ghost small" href="#/kitaplar">Kütüphaneye Git →</a>'
+          + '<a class="btn ghost small" href="kitaplar.html">Kütüphaneye Git →</a>'
           + '</div>'
           + '</div>';
       }).join('')
@@ -2041,7 +2063,7 @@ function deleteReaderHighlight(id) {
 
 function renderUserHighlightsHTML(highlights) {
   if (!highlights || !highlights.length) {
-    return '<p class="empty" style="padding:16px 0">Henüz odak modunda altını çizdiğiniz bir pasaj veya not bulunmuyor.<br><br><a class="btn small" href="#/kitaplar">Kitaplara Göz At ve Oku →</a></p>';
+    return '<p class="empty" style="padding:16px 0">Henüz odak modunda altını çizdiğiniz bir pasaj veya not bulunmuyor.<br><br><a class="btn small" href="kitaplar.html">Kitaplara Göz At ve Oku →</a></p>';
   }
   return '<div class="quotes-wall-grid" style="margin:12px 0">' + highlights.map(function(h){
     return '<div class="quote-tile">'
@@ -3971,7 +3993,7 @@ function quizPage(testId){
   // Test seçilmemişse test galerisini göster
   if (!testId) {
     return '<section class="page">'
-      + '<a class="back" href="#/">← Ana Sayfaya Dön</a>'
+      + '<a class="back" href="index.html">← Ana Sayfaya Dön</a>'
       + '<div class="glossary-hero">'
       + '<h1 class="ptitle">🎭 Edebi Testler & Karakter Analizleri</h1>'
       + '<p class="tag" style="max-width:660px;margin:0 auto 20px">Kişiliğinize, ruh halinize ve felsefi bakış açınıza en yakın edebiyat karakterini, yazar ruh ikizinizi veya şu an okumanız gereken başucu klasiğini keşfedin.</p>'
@@ -3986,7 +4008,7 @@ function quizPage(testId){
             }
           });
           var btnHTML = curUser
-            ? '<a class="btn small" href="#/test/' + encodeURIComponent(qz.id) + '">' + (earnedBadge ? 'Tekrar Çöz →' : 'Teste Başla →') + '</a>'
+            ? '<a class="btn small" href="test.html?id=' + encodeURIComponent(qz.id) + '">' + (earnedBadge ? 'Tekrar Çöz →' : 'Teste Başla →') + '</a>'
             : '<button class="btn ghost small" data-a="open-test-auth" style="display:inline-flex;align-items:center;gap:6px">🔒 Üyelere Özel · Başla</button>';
 
           return '<div class="quiz-card">'
@@ -4020,7 +4042,7 @@ function quizPage(testId){
   // Üye girişi yapılmamışsa testi kilitle
   if (!curUser) {
     return '<section class="page">'
-      + '<a class="back" href="#/test">← Tüm Edebi Testlere Dön</a>'
+      + '<a class="back" href="test.html">← Tüm Edebi Testlere Dön</a>'
       + '<div class="quiz-box" style="text-align:center;padding:48px 24px;max-width:540px;margin:32px auto">'
       + '<div style="font-size:3.2rem;margin-bottom:12px">🔒</div>'
       + '<h2 style="font-family:var(--serif);font-size:1.6rem;color:var(--ink);margin:0 0 12px">Edebi Testler Üyelere Özeldir</h2>'
@@ -4029,7 +4051,7 @@ function quizPage(testId){
       + '</p>'
       + '<div class="btns" style="justify-content:center;gap:12px;flex-wrap:wrap">'
       + '<button class="btn" data-a="open-auth" style="min-width:140px">Giriş Yap / Üye Ol</button>'
-      + '<a class="btn ghost" href="#/test">← Test Listesine Dön</a>'
+      + '<a class="btn ghost" href="test.html">← Test Listesine Dön</a>'
       + '</div>'
       + '</div>'
       + '</section>';
@@ -4057,7 +4079,7 @@ function quizPage(testId){
       : '🎉 Tebrikler! Sonucunuz belirlendi: "' + esc(bName) + '". Bu rozeti profilinize kalıcı olarak işlemek için lütfen üye olun veya giriş yapın.';
 
     return '<section class="page">'
-      + '<a class="back" href="#/test">← Tüm Edebi Testlere Dön</a>'
+      + '<a class="back" href="test.html">← Tüm Edebi Testlere Dön</a>'
       + '<div class="quiz-box">'
       + '<div class="quiz-result-hero">'
       + '<div class="quiz-result-avatar">' + res.avatar + '</div>'
@@ -4070,8 +4092,8 @@ function quizPage(testId){
       + '</div>'
       + '<div class="btns" style="justify-content:center;gap:12px;flex-wrap:wrap">'
       + '<button class="btn" data-a="reset-quiz" data-quiz-id="' + esc(qz.id) + '">🔄 Testi Tekrar Çöz</button>'
-      + '<a class="btn ghost" href="#/test">← Diğer Testleri Keşfet</a>'
-      + (curUser ? '<a class="btn ghost" href="#/hesabim">Rozetlerimi & Profilimi Gör</a>' : '<button class="btn" data-a="open-auth">Giriş Yap / Üye Ol</button>')
+      + '<a class="btn ghost" href="test.html">← Diğer Testleri Keşfet</a>'
+      + (curUser ? '<a class="btn ghost" href="profil.html">Rozetlerimi & Profilimi Gör</a>' : '<button class="btn" data-a="open-auth">Giriş Yap / Üye Ol</button>')
       + '</div>'
       + '</div>'
       + '</div>'
@@ -4082,7 +4104,7 @@ function quizPage(testId){
   var progress = Math.round((currentStep / qz.questions.length) * 100);
 
   return '<section class="page">'
-    + '<a class="back" href="#/test">← Tüm Testlere Dön</a>'
+    + '<a class="back" href="test.html">← Tüm Testlere Dön</a>'
     + '<div class="quiz-box">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:.85rem;color:var(--ink-soft);font-weight:600">'
     + '<span>' + esc(qz.title) + ' · Soru ' + (currentStep + 1) + ' / ' + qz.questions.length + '</span>'
@@ -4207,7 +4229,7 @@ function quotesPage(){
     + '</div>';
 
   return '<section class="page">'
-    + '<a class="back" href="#/">← Ana Sayfa</a>'
+    + '<a class="back" href="index.html">← Ana Sayfa</a>'
     + '<h1 class="ptitle">Edebi Alıntılar Duvarı</h1>'
     + '<p class="lead">Gogol\'un Paltosu edebiyat kulübü üyelerinin altını çizdiği, klasiklerden süzülen unutulmaz cümleler.</p>'
     + cardBanner
@@ -4331,7 +4353,9 @@ function updateAdminStatus(){
 }
 
 function handleUserSession(user) {
+  if (!user) return;
   curUser = user;
+  storeUser(user);
   updateAdminStatus();
   if (user) {
     var uMeta = user.user_metadata || {};
@@ -4894,7 +4918,7 @@ function attachAuthModalEvents(ov) {
             message: 'Tebrikler <b>' + esc(name) + '</b>! Hesabınız başarıyla oluşturuldu ve oturumunuz açıldı.<br><br>Okuma listeniz ve tüm kişiselleştirmeleriniz artık bulutta güvenle saklanacak.',
             buttonText: 'Kütüphaneyi Keşfet',
             onConfirm: function() {
-              location.hash = '#/kitaplar';
+              navigateToPage('kitaplar.html');
             }
           });
           handleUserSession(res.data.user);
@@ -4950,7 +4974,7 @@ function attachAuthModalEvents(ov) {
           message: 'Tebrikler <b>' + esc(name) + '</b>!<br><br>Üyeliğiniz başarıyla oluşturuldu ve oturumunuz açıldı.<br><br>Okuma listeniz ve tüm kişiselleştirmeleriniz güvenle kaydedildi.',
           buttonText: 'Kütüphaneyi Keşfet',
           onConfirm: function() {
-            location.hash = '#/kitaplar';
+            navigateToPage('kitaplar.html');
           }
         });
         handleUserSession({
@@ -5272,8 +5296,8 @@ function home(){
   var h='<section class="hero">'+EMB.replace('<svg','<svg class="emb"')+'<h1>'+esc(S.site.name)+'</h1><p class="tag">'+esc(S.site.tagline)+'</p><div class="btns">'
     +(yt?'<a class="btn ghost" href="'+esc(yt)+'" target="_blank" rel="noopener">'+ytIcon+'<span>YouTube ↗</span></a>':'')
     +(ig?'<a class="btn ghost" href="'+esc(ig)+'" target="_blank" rel="noopener">'+igIcon+'<span>Instagram ↗</span></a>':'')
-    +'<a class="btn ghost" href="#/kitaplar/indirilebilir">'+dlIcon+'<span>Epub ve PDF kitaplara göz at</span></a>'
-    +'<a class="btn ghost" href="#/test">'+quizIcon+'<span>🎭 Edebi Testler & Karakter Analizleri</span></a>'
+    +'<a class="btn ghost" href="kitaplar.html?f=indirilebilir">'+dlIcon+'<span>Epub ve PDF kitaplara göz at</span></a>'
+    +'<a class="btn ghost" href="test.html">'+quizIcon+'<span>🎭 Edebi Testler & Karakter Analizleri</span></a>'
     +'</div>'
     +'<blockquote class="epi" style="margin-inline:auto">“Hepimiz Gogol\'un Palto\'sundan çıktık.”<small>Dostoyevski\'ye atfedilir</small></blockquote></section>';
 
@@ -5301,8 +5325,8 @@ function home(){
       + '<h2 class="camp-title">' + esc(camp.title) + '</h2>'
       + '<p class="camp-desc">' + esc(camp.desc) + '</p>'
       + '<div class="btns" style="justify-content:flex-start;gap:12px">'
-      + '<a class="btn" href="#/kamp" style="background:#fff;color:#7a1f2b;font-weight:700">💬 Tartışmaya Katıl</a>'
-      + '<a class="btn ghost" href="#/kitap/' + encodeURIComponent(camp.bookId) + '" style="color:#fff;border-color:rgba(255,255,255,.6)">📖 Kitabı İncele</a>'
+      + '<a class="btn" href="kamp.html" style="background:#fff;color:#7a1f2b;font-weight:700">💬 Tartışmaya Katıl</a>'
+      + '<a class="btn ghost" href="kitap.html?id=' + encodeURIComponent(camp.bookId) + '" style="color:#fff;border-color:rgba(255,255,255,.6)">📖 Kitabı İncele</a>'
       + '<span style="font-size:.85rem;color:rgba(255,255,255,.9);align-self:center">⏳ Hedef: <b>' + esc(camp.targetDate) + '</b></span>'
       + '</div>'
       + partsTeaser
@@ -5314,7 +5338,7 @@ function home(){
   }
 
   h+=renderDailyPassageHTML();
-  if(feat){h+='<div class="feature">'+cover(feat)+'<div><div class="kicker">Öne çıkan</div><h2>'+esc(feat.title)+'</h2><p class="byline">'+esc(feat.author)+'</p><p>'+esc(feat.summary)+'</p><div class="btns" style="justify-content:flex-start;margin-top:16px"><a class="btn" href="#/kitap/'+encodeURIComponent(feat.id)+'">Konuşma metnini oku</a><button class="btn ghost" data-a="fav" data-id="'+esc(feat.id)+'">'+(isFav(feat.id)?'🔖 Okuma Listenizde':'＋ Okuma Listeme Ekle')+'</button></div></div></div>';}
+  if(feat){h+='<div class="feature">'+cover(feat)+'<div><div class="kicker">Öne çıkan</div><h2>'+esc(feat.title)+'</h2><p class="byline">'+esc(feat.author)+'</p><p>'+esc(feat.summary)+'</p><div class="btns" style="justify-content:flex-start;margin-top:16px"><a class="btn" href="kitap.html?id='+encodeURIComponent(feat.id)+'">Konuşma metnini oku</a><button class="btn ghost" data-a="fav" data-id="'+esc(feat.id)+'">'+(isFav(feat.id)?'🔖 Okuma Listenizde':'＋ Okuma Listeme Ekle')+'</button></div></div></div>';}
   h+='<section class="blk"><div class="sh"><h2>Son eklenenler</h2><a href="kitaplar.html">Tümü →</a></div>';
   h+=pub.length?'<div class="grid">'+pub.slice(0,5).map(card).join('')+'</div>':'<p class="empty">Henüz kitap eklenmedi.</p>';
   h+='</section>';
@@ -5406,16 +5430,16 @@ function libResults(isFavPage, isDlPage, statusParam){
       var catLabel = 'Tüm ' + esc(lib.cat) + ' Kitaplarını Gör' + (catBookCount ? ' (' + catBookCount + ')' : '');
       return '<p class="empty">“' + esc(lib.cat) + '” türünde henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn small ghost" data-a="cleardlfilter">' + catLabel + '</button><button class="btn small" data-a="cat" data-v="">Tüm EPUB / PDF Eserleri (' + dlCount + ')</button></div></p>';
     }
-    if(isDl)return '<p class="empty">Henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br>Yönetim panelinden kitapları düzenleyerek EPUB veya PDF indirme bağlantısı ekleyebilirsiniz.<br><br><a class="btn small" href="#/kitaplar" data-a="cleardlfilter">Tüm Kitapları İncele →</a></p>';
+    if(isDl)return '<p class="empty">Henüz EPUB veya PDF formatı yüklenmiş kitap bulunmuyor.<br><br>Yönetim panelinden kitapları düzenleyerek EPUB veya PDF indirme bağlantısı ekleyebilirsiniz.<br><br><a class="btn small" href="kitaplar.html" data-a="cleardlfilter">Tüm Kitapları İncele →</a></p>';
     if(isFavPage||lib.favOnly){
       if (stFilter === 'read') {
         return '<p class="empty">Henüz “Okundu” olarak işaretlediğiniz bir eser bulunmuyor.<br><br>Okuduğunuz kitapların detay sayfasından veya kartından “✓ Okundu” durumunu seçebilirsiniz.<br><br><a class="btn small" href="okuma-listem.html">Tüm Okuma Listesini Gör (' + favs.length + ') →</a></p>';
       } else if (stFilter === 'reading') {
         return '<p class="empty">Şu an okumakta olduğunuz bir eser bulunmuyor.<br><br>Okumaya başladığınız kitapları “📖 Okunuyor” olarak işaretleyebilirsiniz.<br><br><a class="btn small" href="okuma-listem.html">Tüm Okuma Listesini Gör (' + favs.length + ') →</a></p>';
       } else if (stFilter === 'want') {
-        return '<p class="empty">İstek listenizde henüz kitap bulunmuyor.<br><br><a class="btn small" href="#/kitaplar">Kitapları İncele ve Ekle →</a></p>';
+        return '<p class="empty">İstek listenizde henüz kitap bulunmuyor.<br><br><a class="btn small" href="kitaplar.html">Kitapları İncele ve Ekle →</a></p>';
       }
-      return '<p class="empty">Okuma listenizde henüz kitap yok.<br><br>Kitap kartlarının üzerindeki 🔖 simgesine tıklayarak listenize ekleyebilirsiniz.<br><br><a class="btn small" href="#/kitaplar" data-a="clearfavfilter">Tüm Kitapları İncele →</a></p>';
+      return '<p class="empty">Okuma listenizde henüz kitap yok.<br><br>Kitap kartlarının üzerindeki 🔖 simgesine tıklayarak listenize ekleyebilirsiniz.<br><br><a class="btn small" href="kitaplar.html" data-a="clearfavfilter">Tüm Kitapları İncele →</a></p>';
     }
     return '<p class="empty">Aramanızla eşleşen kitap bulunamadı.</p>';
   }
@@ -5636,7 +5660,7 @@ function charGuideHTML(chars) {
 
 function bookPage(id){
   var b=S.books.filter(function(x){return x.id===id;})[0];
-  if(!b||(b.status==='draft'&&!canEdit))return '<section class="page"><h1 class="ptitle">Kitap bulunamadı</h1><a class="back" href="#/kitaplar">← Kitaplara dön</a></section>';
+  if(!b||(b.status==='draft'&&!canEdit))return '<section class="page"><h1 class="ptitle">Kitap bulunamadı</h1><a class="back" href="kitaplar.html">← Kitaplara dön</a></section>';
   var yt=safeUrl(b.video);
   var rel=pubBooks().filter(function(x){return x.id!==b.id&&x.category===b.category;}).slice(0,4);
   var favActive=isFav(b.id);
@@ -5688,7 +5712,7 @@ function bookPage(id){
    + (b.date?'<p class="meta" style="color:var(--ink-soft);font-size:.85rem;margin-top:28px">Eklenme: '+esc(fmtDate(b.date))+'</p>':'')
    + '</div></article>'
    + (rel.length?'<section class="blk"><div class="sh"><h2>Bu konuda diğerleri</h2></div><div class="grid">'+rel.map(card).join('')+'</div></section>':'')
-   + '<a class="back" href="#/kitaplar">← Tüm kitaplar</a>';
+   + '<a class="back" href="kitaplar.html">← Tüm kitaplar</a>';
 }
 function about(){
   var email = (S.site.email || 'ngogolunpaltosu@gmail.com').trim();
@@ -5730,19 +5754,19 @@ function about(){
 function adminTabs(cur){
   var mCount = getAdminMembersList().length;
   return '<div class="admin-tabs">'
-    + '<a class="btn small'+(cur==='list'?'':' ghost')+'" href="#/yonetim">Kitaplar ('+S.books.length+')</a>'
-    + '<a class="btn small'+(cur==='members'?'':' ghost')+'" href="#/yonetim/uyeler">👥 Üyeler ('+mCount+')</a>'
-    + '<a class="btn small'+(cur==='set'?'':' ghost')+'" href="#/yonetim/ayarlar">Site ayarları</a>'
+    + '<a class="btn small'+(cur==='list'?'':' ghost')+'" href="yonetim.html">Kitaplar ('+S.books.length+')</a>'
+    + '<a class="btn small'+(cur==='members'?'':' ghost')+'" href="yonetim.html?tab=uyeler">👥 Üyeler ('+mCount+')</a>'
+    + '<a class="btn small'+(cur==='set'?'':' ghost')+'" href="yonetim.html?tab=ayarlar">Site ayarları</a>'
     + '</div>';
 }
 function adminList(){
   var rows=S.books.slice().sort(byDate).map(function(b){
     return '<tr><td><div class="mini" style="--c:'+color(b.color)+(b.img&&/^data:image\//.test(b.img)?';background-image:url('+b.img+');background-size:cover;background-position:center':'')+'"></div></td><td><div class="t">'+esc(b.title)+(b.featured?' ★':'')+'</div><div style="color:var(--ink-soft);font-size:.85rem">'+esc(b.author)+'</div></td><td>'+esc(b.category||'')+'</td>'
      +'<td><button class="chip'+(b.status==='draft'?'':' on')+'" data-a="toggle" data-id="'+esc(b.id)+'" title="Durumu değiştir">'+(b.status==='draft'?'Taslak':'Yayında')+'</button></td>'
-     +'<td class="acts"><a class="btn ghost small" href="#/kitap/'+encodeURIComponent(b.id)+'">Gör</a><a class="btn ghost small" href="#/yonetim/kitap/'+encodeURIComponent(b.id)+'">Düzenle</a><button class="btn danger small" data-a="del" data-id="'+esc(b.id)+'">Sil</button></td></tr>';
+     +'<td class="acts"><a class="btn ghost small" href="kitap.html?id='+encodeURIComponent(b.id)+'">Gör</a><a class="btn ghost small" href="yonetim.html?tab=kitap&id='+encodeURIComponent(b.id)+'">Düzenle</a><button class="btn danger small" data-a="del" data-id="'+esc(b.id)+'">Sil</button></td></tr>';
   }).join('');
   return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1>'+adminTabs('list')
-   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px"><a class="btn" href="#/yonetim/kitap/yeni">＋ Yeni kitap ekle</a></div>'
+   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px"><a class="btn" href="yonetim.html?tab=kitap&id=yeni">＋ Yeni kitap ekle</a></div>'
    +(S.books.length?'<div class="wrap-x"><table class="tbl"><thead><tr><th></th><th>Kitap</th><th>Kategori</th><th>Durum</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="empty">Henüz kitap yok. “Yeni kitap ekle” ile başlayın.</p>')
    +'<div class="notice">Yaptığınız değişiklikler önce bu sekmede saklanır. Ziyaretçilere görünmesi için sağ alttaki <b>Yayınla</b> düğmesine basın.</div></section>';
 }
@@ -5750,7 +5774,7 @@ function srcToText(a){return (a||[]).map(function(x){return [x.t||'',x.u||'',x.n
 function textToSrc(t){return t.split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){var p=l.split('|').map(function(x){return x.trim();});if(p.length===1&&/^https?:\/\//i.test(p[0]))return {t:p[0],u:p[0],n:''};return {t:p[0]||'',u:p[1]||'',n:p.slice(2).join(' | ')};});}
 function bookForm(id){
   var isNew=id==='yeni', b=isNew?{title:'',author:'',year:'',category:'Roman',tags:[],video:'',date:new Date().toISOString().slice(0,10),status:'published',featured:false,summary:'',transcript:'',sources:[],color:COLORS[0]}:S.books.filter(function(x){return x.id===id;})[0];
-  if(!b)return '<section class="page"><h1 class="ptitle">Kitap bulunamadı</h1><a class="back" href="#/yonetim">← Panele dön</a></section>';
+  if(!b)return '<section class="page"><h1 class="ptitle">Kitap bulunamadı</h1><a class="back" href="yonetim.html">← Panele dön</a></section>';
   formImg=b.img||'';
   return '<section class="page"><h1 class="ptitle">'+(isNew?'Yeni kitap':'Kitabı düzenle')+'</h1>'+adminTabs('list')
    +'<div class="form">'
@@ -5766,7 +5790,7 @@ function bookForm(id){
    +'<div><label>Kapak görseli <span class="hint">Yayınevi kapağını yükleyin (JPG/PNG). Otomatik küçültülür. Görsel yoksa aşağıdaki renkli kapak kullanılır.</span></label><div class="imgprev"><div id="img-prev">'+(formImg?cover({img:formImg,title:b.title,author:b.author}):'<span class="hint">Henüz görsel yok</span>')+'</div><div class="btns"><label class="btn ghost small" style="margin:0;cursor:pointer">Görsel seç<input type="file" id="f-img" accept="image/*" class="hide"></label><button class="btn danger small" data-a="rmimg">Görseli kaldır</button></div></div></div>'
    +'<div><label>Yedek kapak rengi</label><div class="swatches">'+COLORS.map(function(c){return '<label><input type="radio" name="color" value="'+c+'"'+(color(b.color)===c?' checked':'')+'><span style="--c:'+c+'"></span></label>';}).join('')+'</div></div>'
    +'<div class="row2"><div><label for="f-status">Durum</label><select id="f-status"><option value="published"'+(b.status!=='draft'?' selected':'')+'>Yayında</option><option value="draft"'+(b.status==='draft'?' selected':'')+'>Taslak (ziyaretçiye gizli)</option></select></div><div class="check" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="f-feat"'+(b.featured?' checked':'')+'><label for="f-feat" style="margin:0">Ana sayfada öne çıkar</label></div></div>'
-   +'<div class="btns" style="justify-content:flex-start"><button class="btn" data-a="savebook" data-id="'+esc(id)+'">Kaydet</button><a class="btn ghost" href="#/yonetim">Vazgeç</a></div></div></section>';
+   +'<div class="btns" style="justify-content:flex-start"><button class="btn" data-a="savebook" data-id="'+esc(id)+'">Kaydet</button><a class="btn ghost" href="yonetim.html">Vazgeç</a></div></div></section>';
 }
 function adminSettings(){
   var s=S.site;
@@ -5810,7 +5834,7 @@ function memberRowHTML(m){
     : esc(fullName);
 
   var usernameHTML = m.username
-    ? '<a href="#/profil/' + encodeURIComponent(m.username) + '" class="member-username-link" title="@' + esc(m.username) + ' profilini ve okuma listesini görüntüle">@' + esc(m.username) + ' ↗</a>'
+    ? '<a href="profil.html?u=' + encodeURIComponent(m.username) + '" class="member-username-link" title="@' + esc(m.username) + ' profilini ve okuma listesini görüntüle">@' + esc(m.username) + ' ↗</a>'
     : '<span class="member-username">—</span>';
 
   var roleBadge = isAdmin
@@ -5937,7 +5961,7 @@ function adminGate(){
   if(!curUser){
     return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1><div class="notice">Bu bölüm yalnızca yetkili site yöneticisine açıktır. Yönetim paneline erişmek için lütfen yönetici hesabınızla <button class="btn small" data-a="open-auth" style="margin-left:8px">Giriş Yapın</button></div></section>';
   }
-  return '<section class="page"><h1 class="ptitle">Yetkisiz Erişim</h1><div class="notice">Yönetim paneline erişim yetkiniz bulunmamaktadır. Şu anda <b>'+esc(curUser.email)+'</b> hesabı ile oturum açtınız.</div><a class="back" href="#/">← Ana Sayfaya Dön</a></section>';
+  return '<section class="page"><h1 class="ptitle">Yetkisiz Erişim</h1><div class="notice">Yönetim paneline erişim yetkiniz bulunmamaktadır. Şu anda <b>'+esc(curUser.email)+'</b> hesabı ile oturum açtınız.</div><a class="back" href="index.html">← Ana Sayfaya Dön</a></section>';
 }
 function renderGoalTracker(books, isSelf) {
   var goal = getReadingGoal();
@@ -6069,15 +6093,15 @@ function accountPage(targetId){
           + '<div style="min-width:0"><div class="acc-fav-title">' + esc(b.title) + '</div><div class="acc-fav-meta">' + esc(b.author) + (b.category ? ' · ' + esc(b.category) : '') + (b.year ? ' · ' + esc(b.year) : '') + '</div></div>'
           + '</div>'
           + '<div style="display:flex;gap:8px;align-items:center">'
-          + '<a class="btn ghost small" href="#/kitap/' + encodeURIComponent(b.id) + '">Kitabı İncele →</a>'
+          + '<a class="btn ghost small" href="kitap.html?id=' + encodeURIComponent(b.id) + '">Kitabı İncele →</a>'
           + '</div>'
           + '</div>';
       }).join('') + '</div>';
     }
 
     var backBtn = canEdit 
-      ? '<a class="back" href="#/yonetim/uyeler" style="margin-bottom:14px;display:inline-block">← Yönetim Paneli Üye Listesine Dön</a>' 
-      : '<a class="back" href="#/kitaplar" style="margin-bottom:14px;display:inline-block">← Kitaplığa Dön</a>';
+      ? '<a class="back" href="yonetim.html?tab=uyeler" style="margin-bottom:14px;display:inline-block">← Yönetim Paneli Üye Listesine Dön</a>' 
+      : '<a class="back" href="kitaplar.html" style="margin-bottom:14px;display:inline-block">← Kitaplığa Dön</a>';
 
     var mQuizBadges = getUserBadges(cleanTarget || mUsername || mEmail || m.id);
     var mQuizBadgesHTML = mQuizBadges.map(function(qBadge){
@@ -6133,7 +6157,7 @@ function accountPage(targetId){
       + '</div>'
 
       + '<div class="acc-section">'
-      + '<div class="acc-section-title"><span>Katıldığı Okuma Meydan Okumaları (' + mJoinedCount + ')</span><a class="btn ghost small" href="#/meydan-okuma">Tüm Meydan Okumalar 🏆</a></div>'
+      + '<div class="acc-section-title"><span>Katıldığı Okuma Meydan Okumaları (' + mJoinedCount + ')</span><a class="btn ghost small" href="meydan-okuma.html">Tüm Meydan Okumalar 🏆</a></div>'
       + renderUserChallengesHTML(mUserChs, mFavBooks, mQuizBadges, false)
       + '</div>'
       + renderUserCampBadgeHTML(cleanTarget || mUsername || mEmail || m.id)
@@ -6162,7 +6186,7 @@ function accountPage(targetId){
       + '<div style="font-size:3.5rem;margin-bottom:12px">📚</div>'
       + '<h2 style="font-family:var(--serif);font-size:1.55rem;margin-bottom:8px">Gogol\'un Paltosu Okur Hesabı</h2>'
       + '<p style="color:var(--ink-soft);max-width:500px;margin:0 auto 24px;line-height:1.6">Okuma listenizi tüm cihazlarınızda (telefon, tablet, bilgisayar) güvenle saklamak ve eşitlemek, edebiyat rozetlerinizi takip etmek ve okuma istatistiklerinizi görmek için giriş yapın veya ücretsiz hesap oluşturun.</p>'
-      + '<div class="btns" style="justify-content:center;gap:12px"><button class="btn" data-a="open-auth">Giriş Yap / Ücretsiz Kayıt Ol</button><a class="btn ghost" href="#/kitaplar">Kitapları Keşfet</a></div>'
+      + '<div class="btns" style="justify-content:center;gap:12px"><button class="btn" data-a="open-auth">Giriş Yap / Ücretsiz Kayıt Ol</button><a class="btn ghost" href="kitaplar.html">Kitapları Keşfet</a></div>'
       + '</div></section>';
   }
 
@@ -6249,7 +6273,7 @@ function accountPage(targetId){
 
   var favPreviewHTML = '';
   if(favBooks.length === 0){
-    favPreviewHTML = '<p class="empty" style="padding:14px 0">Okuma listenizde henüz kitap bulunmuyor.<br><br><a class="btn small" href="#/kitaplar">Kitapları İncele ve Ekle →</a></p>';
+    favPreviewHTML = '<p class="empty" style="padding:14px 0">Okuma listenizde henüz kitap bulunmuyor.<br><br><a class="btn small" href="kitaplar.html">Kitapları İncele ve Ekle →</a></p>';
   } else {
     var previewSlice = favBooks.slice(0, 5);
     favPreviewHTML = '<div class="acc-fav-preview">' + previewSlice.map(function(b){
@@ -6259,7 +6283,7 @@ function accountPage(targetId){
         + '<div style="min-width:0"><div class="acc-fav-title">' + esc(b.title) + '</div><div class="acc-fav-meta">' + esc(b.author) + (b.category ? ' · ' + esc(b.category) : '') + (b.year ? ' · ' + esc(b.year) : '') + '</div></div>'
         + '</div>'
         + '<div style="display:flex;gap:8px;align-items:center">'
-        + '<a class="btn ghost small" href="#/kitap/' + encodeURIComponent(b.id) + '">Gör</a>'
+        + '<a class="btn ghost small" href="kitap.html?id=' + encodeURIComponent(b.id) + '">Gör</a>'
         + '<button class="btn danger small" data-a="fav" data-id="' + esc(b.id) + '" title="Listeden çıkar">✕</button>'
         + '</div>'
         + '</div>';
@@ -6278,13 +6302,13 @@ function accountPage(targetId){
         : '<span class="profile-role-badge">📖 Edebiyat Okuru</span>')
     + '</div>'
     + '<div class="profile-meta">'
-    + (username ? '<span><a href="#/profil/' + encodeURIComponent(username) + '" class="member-username-link" title="Herkese açık profilinizi görüntüleyin"><b>@' + esc(username) + '</b> ↗</a></span>' : '')
+    + (username ? '<span><a href="profil.html?u=' + encodeURIComponent(username) + '" class="member-username-link" title="Herkese açık profilinizi görüntüleyin"><b>@' + esc(username) + '</b> ↗</a></span>' : '')
     + '<span>✉️ ' + esc(email) + '</span>'
     + '<span>📅 Üyelik: ' + esc(joinDate) + '</span>'
     + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    + (isAdmin ? '<a class="btn small" href="#/yonetim">⚙️ Yönetim Paneli</a>' : '')
+    + (isAdmin ? '<a class="btn small" href="yonetim.html">⚙️ Yönetim Paneli</a>' : '')
     + '<button class="btn ghost small" data-a="logout">Çıkış Yap</button>'
     + '</div>'
     + '</div>'
@@ -6309,7 +6333,7 @@ function accountPage(targetId){
     + '</div>'
 
     + '<div class="acc-section">'
-    + '<div class="acc-section-title"><span>Katıldığınız Okuma Meydan Okumaları (' + myJoinedCount + ')</span><a class="btn small" href="#/meydan-okuma">Meydan Okumalara Git 🏆</a></div>'
+    + '<div class="acc-section-title"><span>Katıldığınız Okuma Meydan Okumaları (' + myJoinedCount + ')</span><a class="btn small" href="meydan-okuma.html">Meydan Okumalara Git 🏆</a></div>'
     + renderUserChallengesHTML(myChs, favBooks, quizBadges, true)
     + '</div>'
     + renderUserCampBadgeHTML(username || email || curUser.id)
@@ -6325,7 +6349,7 @@ function accountPage(targetId){
     + '</div>'
 
     + '<div class="acc-section">'
-    + '<div class="acc-section-title"><span>Kitaplardan Paylaştığınız Alıntılar (' + myQuotes.length + ')</span><a class="btn small" href="#/alintilar">＋ Yeni Alıntı Paylaş</a></div>'
+    + '<div class="acc-section-title"><span>Kitaplardan Paylaştığınız Alıntılar (' + myQuotes.length + ')</span><a class="btn small" href="alintilar.html">＋ Yeni Alıntı Paylaş</a></div>'
     + renderUserQuotesHTML(myQuotes, true)
     + '</div>'
 
@@ -6379,7 +6403,7 @@ function welcomePage(){
     + '<div class="welcome-feat-icon">📚</div>'
     + '<h3>Zengin Edebiyat Kütüphanesi</h3>'
     + '<p>Klasik romanlar, öyküler, felsefi metinler ve YouTube kanalımızdaki video analizlerinin tam konuşma metinleri.</p>'
-    + '<a class="welcome-feat-link" href="#/kitaplar">Kitapları İncele →</a>'
+    + '<a class="welcome-feat-link" href="kitaplar.html">Kitapları İncele →</a>'
     + '</div>'
 
     + '<div class="welcome-feat-card">'
@@ -6393,20 +6417,20 @@ function welcomePage(){
     + '<div class="welcome-feat-icon">📖</div>'
     + '<h3>EPUB & PDF İndirmeleri</h3>'
     + '<p>E-kitap okuyucunuz veya telefonunuz için doğrudan indirilebilir dijital kitap arşivine erişin.</p>'
-    + '<a class="welcome-feat-link" href="#/kitaplar/indirilebilir">İndirilebilir Eserler →</a>'
+    + '<a class="welcome-feat-link" href="kitaplar.html?f=indirilebilir">İndirilebilir Eserler →</a>'
     + '</div>'
 
     + '<div class="welcome-feat-card">'
     + '<div class="welcome-feat-icon">👤</div>'
     + '<h3>Kişisel Okur Profili</h3>'
     + '<p>Profil fotoğrafınızı değiştirin, okuma rozetlerinizi görün ve okuma listenizi metin belgesi olarak indirin.</p>'
-    + '<a class="welcome-feat-link" href="#/hesabim">Profilinizi Görün →</a>'
+    + '<a class="welcome-feat-link" href="profil.html">Profilinizi Görün →</a>'
     + '</div>'
     + '</div>'
 
     + '<div class="welcome-cta-wrap">'
-    + '<a class="btn welcome-main-btn" href="#/kitaplar">📚 Kütüphaneyi Keşfetmeye Başla</a>'
-    + '<a class="btn ghost welcome-sec-btn" href="#/hesabim">Hesabım & Profilim</a>'
+    + '<a class="btn welcome-main-btn" href="kitaplar.html">📚 Kütüphaneyi Keşfetmeye Başla</a>'
+    + '<a class="btn ghost welcome-sec-btn" href="profil.html">Hesabım & Profilim</a>'
     + '</div>'
     + '</div>'
     + '</section>';
@@ -6489,7 +6513,7 @@ function render(){
     else if(p[1]==='ayarlar')body=adminSettings();
     else if(p[1]==='uyeler'||p[1]==='kullanicilar')body=adminMembers();
     else body=adminList();
-  } else body='<section class="page"><h1 class="ptitle">Sayfa bulunamadı</h1><a class="back" href="#/">← Ana sayfa</a></section>';
+  } else body='<section class="page"><h1 class="ptitle">Sayfa bulunamadı</h1><a class="back" href="index.html">← Ana sayfa</a></section>';
   var pageTitle = S.site.name;
   if(p[0]==='kitap' && p[1]) {
     var bItem = S.books.filter(function(x){return x.id===p[1];})[0];
@@ -6613,23 +6637,23 @@ document.addEventListener('click',function(e){
   else if(a==='fav'){toggleFav(id);}
   else if(a==='nextquote'){nextQuote();}
   else if(a==='favonly'){lib.favOnly=!lib.favOnly;lib.page=1;refreshLib();}
-  else if(a==='clearfavfilter'){lib.favOnly=false;lib.page=1;if(route()[0]==='okuma-listem'){location.hash='#/kitaplar';}else{refreshLib();}}
+  else if(a==='clearfavfilter'){lib.favOnly=false;lib.page=1;if(route()[0]==='okuma-listem'){navigateToPage('kitaplar.html');}else{refreshLib();}}
   else if(a==='dlonly'){
     var curR=route();
     if((curR[0]==='kitaplar'&&curR[1]==='indirilebilir') || lib.dlOnly){
       lib.dlOnly=false;
       lib.page=1;
-      location.hash='#/kitaplar';
+      navigateToPage('kitaplar.html');
     } else {
       lib.dlOnly=true;
       lib.page=1;
-      location.hash='#/kitaplar/indirilebilir';
+      navigateToPage('kitaplar.html?f=indirilebilir');
     }
   }
   else if(a==='cleardlfilter'){
     lib.dlOnly=false;
     lib.page=1;
-    location.hash='#/kitaplar';
+    navigateToPage('kitaplar.html');
   }
   else if(a==='cat'){
     lib.cat = (lib.cat === v && v !== '') ? '' : v;
@@ -6929,7 +6953,7 @@ document.addEventListener('click',function(e){
       qEl.focus();
       qEl.scrollIntoView({ behavior: 'smooth' });
     } else {
-      location.hash = '#/alintilar';
+      navigateToPage('alintilar.html');
     }
   }
   else if(a==='next-passage'){
@@ -7208,7 +7232,7 @@ function saveBook(id){
     sources:textToSrc(val('f-sources')),img:formImg,color:col?col.value:COLORS[0],status:val('f-status'),featured:featEl?featEl.checked:false};
   if(id==='yeni'){b.id=uniqueId(title);S.books.push(b);}
   else{var i=S.books.findIndex(function(x){return x.id===id;});b.id=id;if(i>=0)S.books[i]=b;else S.books.push(b);}
-  markDirty();toast('Kaydedildi. Yayınla düğmesine basana kadar ziyaretçiler görmez.');location.hash='#/yonetim';
+  markDirty();toast('Kaydedildi. Yayınla düğmesine basana kadar ziyaretçiler görmez.');navigateToPage('yonetim.html');
 }
 function saveSettings(){
   S.site={name:val('s-name').trim()||"Gogol'un Paltosu",tagline:val('s-tag').trim(),admin:val('s-admin').trim(),youtube:val('s-yt').trim(),instagram:val('s-ig').trim(),email:val('s-email')?val('s-email').trim():'',about:val('s-about'),footer:val('s-foot').trim()};
@@ -7282,6 +7306,7 @@ async function updateProfileInfo(){
     } else {
       curUser.user_metadata = meta;
     }
+    storeUser(curUser);
 
     if(newUname && curUser.email){
       try { localStorage.setItem('gp-user-' + newUname, curUser.email); } catch(e){}
@@ -7350,6 +7375,7 @@ async function saveProfileAvatar(dataUrl){
     } else {
       curUser.user_metadata = meta;
     }
+    storeUser(curUser);
     addMemberToRegistry({
       id: curUser.id,
       email: curUser.email,
@@ -7380,6 +7406,7 @@ async function removeProfileAvatar(){
       } else {
         curUser.user_metadata = meta;
       }
+      storeUser(curUser);
       addMemberToRegistry({
         id: curUser.id,
         email: curUser.email,
@@ -7399,6 +7426,10 @@ window.addEventListener('hashchange',onRoute);
 
 /* ---------- başlangıç ---------- */
 async function init(){
+  if (!curUser) {
+    curUser = getStoredUser();
+    updateAdminStatus();
+  }
   onRoute();
   hidePageLoader();
   var rawHash = window.location.hash || '';
@@ -7429,6 +7460,7 @@ async function init(){
       var sRes=await supa.auth.getSession();
       if(sRes&&sRes.data&&sRes.data.session&&sRes.data.session.user){
         curUser=sRes.data.session.user;
+        storeUser(curUser);
         updateAdminStatus();
         if(curUser.user_metadata){
           syncFavsWithCloud(curUser.user_metadata.reading_list);
@@ -7461,27 +7493,27 @@ async function init(){
       supa.auth.onAuthStateChange(function(evt, session){
         if(evt==='PASSWORD_RECOVERY' || isRecovery){
           openAuthModal('newpass');
-        } else if(session&&session.user){
+        } else if(session && session.user){
           if(isSignupConfirm) {
             isSignupConfirm = false;
-            try {
-              if (window.history && window.history.replaceState) {
-                window.history.replaceState(null, '', window.location.pathname + '#/hosgeldiniz');
-              } else {
-                location.hash = '#/hosgeldiniz';
-              }
-            } catch(e){
-              location.hash = '#/hosgeldiniz';
-            }
             toast('E-postanız doğrulandı. Aramıza hoş geldiniz! 📚');
           }
           handleUserSession(session.user);
-        } else {
-          curUser=null;
-          favs=[];
-          try{localStorage.removeItem('gp-favs');}catch(e){}
+        } else if(evt === 'SIGNED_OUT'){
+          curUser = null;
+          storeUser(null);
+          favs = [];
+          try { localStorage.removeItem('gp-favs'); } catch(e){}
           updateAdminStatus();
           render();
+        } else {
+          // INITIAL_SESSION veya boş session geldiğinde,
+          // localStorage'daki geçerli oturumu koru, hesabı ASLA kapatma!
+          var stored = getStoredUser();
+          if(stored){
+            curUser = stored;
+            updateAdminStatus();
+          }
         }
       });
     }catch(e){console.warn('Supabase auth listener error:',e);}
