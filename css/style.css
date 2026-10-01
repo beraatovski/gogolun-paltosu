@@ -48,17 +48,17 @@ nav.nav-desktop a.on{color:var(--accent);background:var(--paper-2);font-weight:6
 .mobile-menu-btn:hover,.mobile-menu-btn:active{background:var(--card);border-color:var(--accent);color:var(--accent)}
 
 /* mobile drawer */
-.mobile-drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:99990;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease;pointer-events:none}
+.mobile-drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:99990;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease;pointer-events:none;overscroll-behavior:contain;touch-action:none}
 .mobile-drawer-backdrop.open{opacity:1;visibility:visible;pointer-events:all}
-.mobile-drawer{position:fixed;top:0;right:-340px;width:310px;max-width:86vw;height:100%;height:100dvh;background:var(--card);border-left:1px solid var(--line);box-shadow:-12px 0 36px rgba(0,0,0,.25);z-index:99995;display:flex;flex-direction:column;transition:transform .28s cubic-bezier(0.16,1,0.3,1);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
-.mobile-drawer.open{transform:translateX(-340px)}
-body.mobile-menu-active{overflow:hidden!important}
-.drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--paper)}
+.mobile-drawer{position:fixed;top:0;right:0;bottom:0;width:300px;max-width:85vw;height:100%;height:100dvh;background:var(--card);border-left:1px solid var(--line);box-shadow:-12px 0 36px rgba(0,0,0,.25);z-index:99995;display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;pointer-events:none;transition:transform .28s cubic-bezier(0.16,1,0.3,1),visibility .28s;overflow:hidden;overscroll-behavior:contain;overscroll-behavior-y:contain;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.mobile-drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto}
+html.mobile-menu-active,body.mobile-menu-active{overflow:hidden!important;height:100vh!important;height:100dvh!important;touch-action:none!important}
+.drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--paper);flex-shrink:0}
 .drawer-brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:700;font-size:1.15rem;color:var(--ink);text-decoration:none}
 .drawer-brand svg{width:26px;height:26px;color:var(--accent);flex-shrink:0}
 .drawer-close-btn{background:var(--paper-2);border:1px solid var(--line);color:var(--ink);font-size:1.4rem;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s}
 .drawer-close-btn:hover{background:var(--line);color:var(--accent)}
-.drawer-body{padding:16px;flex:1;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.drawer-body{padding:16px;flex:1;display:flex;flex-direction:column;gap:14px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;overscroll-behavior-y:contain;touch-action:pan-y}
 .drawer-user-card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .drawer-user-info{display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-decoration:none;color:var(--ink)}
 .drawer-user-avatar{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;flex-shrink:0}
@@ -720,24 +720,28 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
    Responsive & Mobil Uyumlaştırma (Mobile Responsiveness)
    ========================================================================== */
 
-/* Tablet Ekranlar (681px - 1024px) — Tam Normal / Masaüstü Tasarım */
-@media (min-width: 681px) and (max-width: 1024px) {
+/* Tablet & Masaüstü Ekranlar (>= 681px) — Tam Normal / Masaüstü Tasarım */
+@media (min-width: 681px) {
   nav.nav-desktop {
     display: flex !important;
+  }
+  .nav-mobile-ctrls,
+  .mobile-menu-btn,
+  .mobile-drawer,
+  .mobile-drawer-backdrop {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+}
+@media (min-width: 681px) and (max-width: 1024px) {
+  nav.nav-desktop {
     gap: 3px;
   }
   nav.nav-desktop a, nav.nav-desktop button {
     padding: 5px 8px;
     font-size: .83rem;
-  }
-  .nav-mobile-ctrls {
-    display: none !important;
-  }
-  .mobile-menu-btn {
-    display: none !important;
-  }
-  .mobile-drawer, .mobile-drawer-backdrop {
-    display: none !important;
   }
   .bar {
     padding: 10px 14px;
