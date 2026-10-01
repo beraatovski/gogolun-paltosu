@@ -720,8 +720,37 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
    Responsive & Mobil Uyumlaştırma (Mobile Responsiveness)
    ========================================================================== */
 
-/* Tablet & Küçük Ekranlar (<= 860px) */
-@media (max-width: 860px) {
+/* Tablet Ekranlar (681px - 1024px) — Tam Normal / Masaüstü Tasarım */
+@media (min-width: 681px) and (max-width: 1024px) {
+  nav.nav-desktop {
+    display: flex !important;
+    gap: 3px;
+  }
+  nav.nav-desktop a, nav.nav-desktop button {
+    padding: 5px 8px;
+    font-size: .83rem;
+  }
+  .nav-mobile-ctrls {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: none !important;
+  }
+  .mobile-drawer, .mobile-drawer-backdrop {
+    display: none !important;
+  }
+  .bar {
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .brand {
+    font-size: 1.12rem;
+  }
+}
+
+/* Sadece Telefonlar (<= 680px) — Mobil Çekmece & Dokunmatik Düzen */
+@media (max-width: 680px) {
   nav.nav-desktop {
     display: none !important;
   }
@@ -731,10 +760,6 @@ a.member-avatar-mini:hover{transform:scale(1.08)}
   .mobile-menu-btn {
     display: flex !important;
   }
-}
-
-/* Mobil Cihazlar & Telefonlar (<= 720px) */
-@media (max-width: 720px) {
   html, body {
     overflow-x: hidden;
     max-width: 100vw;
