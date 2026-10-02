@@ -5423,47 +5423,43 @@ function renderFilterPanelContent(isFav, isDl){
   var dlCount = allPub.filter(hasDownload).length;
   var currentMatchCount = getFilteredBooksCount(isFav, isDl);
 
-  var pubPills = '<button type="button" class="filter-pill' + (!lib.pub ? ' on' : '') + '" data-a="filter-pub" data-v="">Tüm Yayınevleri <small>(' + totalBooks + ')</small></button>'
+  var pubPills = '<button type="button" class="filter-pill' + (!lib.pub ? ' active' : '') + '" data-a="filter-pub" data-v="">Tüm Yayınevleri <small>(' + totalBooks + ')</small></button>'
     + pc.map(function(p){
-        return '<button type="button" class="filter-pill' + (lib.pub === p[0] ? ' on' : '') + '" data-a="filter-pub" data-v="' + esc(p[0]) + '">' + esc(p[0]) + ' <small>(' + p[1] + ')</small></button>';
+        return '<button type="button" class="filter-pill' + (lib.pub === p[0] ? ' active' : '') + '" data-a="filter-pub" data-v="' + esc(p[0]) + '">' + esc(p[0]) + ' <small>(' + p[1] + ')</small></button>';
       }).join('');
 
-  var catPills = '<button type="button" class="filter-pill' + (!lib.cat ? ' on' : '') + '" data-a="cat" data-v="">Tüm Türler</button>'
+  var catPills = '<button type="button" class="filter-pill' + (!lib.cat ? ' active' : '') + '" data-a="cat" data-v="">Tüm Türler</button>'
     + cc.map(function(c){
-        return '<button type="button" class="filter-pill' + (lib.cat === c[0] ? ' on' : '') + '" data-a="cat" data-v="' + esc(c[0]) + '">' + esc(c[0]) + ' <small>(' + c[1] + ')</small></button>';
+        return '<button type="button" class="filter-pill' + (lib.cat === c[0] ? ' active' : '') + '" data-a="cat" data-v="' + esc(c[0]) + '">' + esc(c[0]) + ' <small>(' + c[1] + ')</small></button>';
       }).join('');
 
-  var dlPills = '<button type="button" class="filter-pill' + (!lib.dlOnly ? ' on' : '') + '" data-a="filter-dl" data-v="all">Tüm Kitaplar</button>'
-    + '<button type="button" class="filter-pill' + (lib.dlOnly ? ' on' : '') + '" data-a="filter-dl" data-v="dl">⬇ Sadece EPUB / PDF <small>(' + dlCount + ')</small></button>';
+  var dlPills = '<button type="button" class="filter-pill' + (!lib.dlOnly ? ' active' : '') + '" data-a="filter-dl" data-v="all">Tüm Kitaplar</button>'
+    + '<button type="button" class="filter-pill' + (lib.dlOnly ? ' active' : '') + '" data-a="filter-dl" data-v="dl">⬇ Sadece EPUB / PDF <small>(' + dlCount + ')</small></button>';
 
-  var sortPills = '<button type="button" class="filter-pill' + (lib.sort === 'new' ? ' on' : '') + '" data-a="filter-sort" data-v="new">En Yeni Eklenenler</button>'
-    + '<button type="button" class="filter-pill' + (lib.sort === 'old' ? ' on' : '') + '" data-a="filter-sort" data-v="old">En Eski</button>'
-    + '<button type="button" class="filter-pill' + (lib.sort === 'az' ? ' on' : '') + '" data-a="filter-sort" data-v="az">A → Z (Başlık)</button>'
-    + '<button type="button" class="filter-pill' + (lib.sort === 'za' ? ' on' : '') + '" data-a="filter-sort" data-v="za">Z → A (Başlık)</button>';
+  var sortPills = '<button type="button" class="filter-pill' + (lib.sort === 'new' ? ' active' : '') + '" data-a="filter-sort" data-v="new">En Yeni Eklenenler</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'old' ? ' active' : '') + '" data-a="filter-sort" data-v="old">En Eski</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'az' ? ' active' : '') + '" data-a="filter-sort" data-v="az">A → Z (Başlık)</button>'
+    + '<button type="button" class="filter-pill' + (lib.sort === 'za' ? ' active' : '') + '" data-a="filter-sort" data-v="za">Z → A (Başlık)</button>';
 
   var hasActive = getActiveFilterCount() > 0;
   var clearBtn = hasActive
     ? '<button type="button" class="btn ghost small" data-a="clear-all-filters" style="color:var(--accent);border-color:var(--accent)">✕ Filtreleri Sıfırla</button>'
     : '';
 
-  return '<div class="filter-panel-header">'
-    + '<div class="filter-panel-title">'
-    + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>'
-    + 'Detaylı Filtre Seçenekleri'
-    + '</div>'
-    + '<button type="button" class="btn ghost small" data-a="toggle-filters" style="padding:3px 10px;font-size:.82rem" title="Paneli Kapat">✕ Kapat</button>'
+  return '<div class="filter-panel-inner">'
+    + '<div class="filter-panel-header">'
+    + '<div class="filter-panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg> Detaylı Filtre</div>'
+    + '<button type="button" class="btn ghost small" data-a="toggle-filters" style="padding:3px 10px;font-size:.82rem">✕ Kapat</button>'
     + '</div>'
     + '<div class="filter-panel-grid">'
     + '<div class="filter-section"><div class="filter-section-title">📚 Yayınevi</div><div class="filter-pills">' + pubPills + '</div></div>'
-    + '<div class="filter-section"><div class="filter-section-title">📁 Edebi Tür / Kategori</div><div class="filter-pills">' + catPills + '</div></div>'
-    + '<div class="filter-section"><div class="filter-section-title">⚡ Format & İndirme</div><div class="filter-pills">' + dlPills + '</div></div>'
+    + '<div class="filter-section"><div class="filter-section-title">📁 Edebi Tür</div><div class="filter-pills">' + catPills + '</div></div>'
+    + '<div class="filter-section"><div class="filter-section-title">⬇ Format</div><div class="filter-pills">' + dlPills + '</div></div>'
     + '<div class="filter-section"><div class="filter-section-title">⇅ Sıralama</div><div class="filter-pills">' + sortPills + '</div></div>'
     + '</div>'
     + '<div class="filter-panel-footer">'
-    + '<div class="filter-panel-info">Seçilen kriterlere uygun <b>' + currentMatchCount + '</b> kitap listeleniyor</div>'
-    + '<div class="filter-panel-actions">'
-    + clearBtn
-    + '<button type="button" class="btn small" data-a="toggle-filters">Tamam ✓</button>'
+    + '<div class="filter-panel-info">Seçilen kriterlere uygun <b>' + currentMatchCount + '</b> kitap</div>'
+    + '<div class="filter-panel-actions">' + clearBtn + '<button type="button" class="btn small" data-a="toggle-filters">Tamam ✓</button></div>'
     + '</div>'
     + '</div>';
 }
@@ -5987,11 +5983,13 @@ function library(isFavPage, isDlPage, statusParam){
     + '</div>'
     + '<div id="lib-active-filters">' + renderActiveFiltersHTML() + '</div>';
 
+  var statusChips = isFavPage ? ('<div class="chips" id="lib-chips">' + libChips(isFavPage, isDl, statusParam) + '</div>') : '';
   return '<section class="page"><h1 class="ptitle">'+title+'</h1><p class="lead">'+lead+'</p>'
    +viewTabs
    +tip
    +filtersHTML
-   +'<div class="chips" id="lib-chips">'+libChips(isFavPage, isDl, statusParam)+'</div><div id="lib-results">'+libResults(isFavPage, isDl, statusParam)+'</div></section>';
+   +statusChips
+   +'<div id="lib-results">'+libResults(isFavPage, isDl, statusParam)+'</div></section>';
 }
 function transcriptHTML(b){
   var t=(b.transcript||'').trim();
@@ -7042,7 +7040,7 @@ function refreshLib(){
 
   var cEl=document.getElementById('lib-chips');
   var rEl=document.getElementById('lib-results');
-  if(cEl)cEl.innerHTML=libChips(isFav, isDl, p[1]);
+  if(cEl && isFav) cEl.innerHTML=libChips(isFav, isDl, p[1]);
   if(rEl)rEl.innerHTML=libResults(isFav, isDl, p[1]);
 }
 
