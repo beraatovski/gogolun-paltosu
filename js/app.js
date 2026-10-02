@@ -5978,13 +5978,6 @@ function library(isFavPage, isDlPage, statusParam){
 
   var filtersHTML = '<div class="filters">'
     + '<input id="lib-q" type="search" placeholder="Kitap, yazar, konu ya da metin içinde ara…" value="' + esc(lib.q) + '">'
-    + '<select id="lib-pub" title="Yayınevine Göre Filtrele">' + pubOptions + '</select>'
-    + '<select id="lib-sort" title="Sıralama Seçeneği">'
-    + '<option value="new"' + (lib.sort === 'new' ? ' selected' : '') + '>Sıralama: En yeni</option>'
-    + '<option value="old"' + (lib.sort === 'old' ? ' selected' : '') + '>Sıralama: En eski</option>'
-    + '<option value="az"' + (lib.sort === 'az' ? ' selected' : '') + '>Sıralama: A → Z</option>'
-    + '<option value="za"' + (lib.sort === 'za' ? ' selected' : '') + '>Sıralama: Z → A</option>'
-    + '</select>'
     + '<button type="button" class="filter-btn' + (lib.filterOpen ? ' active' : '') + (activeCount ? ' has-filters' : '') + '" id="lib-filter-toggle" data-a="toggle-filters" title="Detaylı Filtre Seçenekleri">'
     + filterBtnContent
     + '</button>'
@@ -7028,11 +7021,6 @@ function refreshLib(){
   var qEl = document.getElementById('lib-q');
   if(qEl && qEl.value !== lib.q) qEl.value = lib.q;
 
-  var pubEl = document.getElementById('lib-pub');
-  if(pubEl && pubEl.value !== lib.pub) pubEl.value = lib.pub;
-
-  var sortEl = document.getElementById('lib-sort');
-  if(sortEl && sortEl.value !== lib.sort) sortEl.value = lib.sort;
 
   var badgeEl = document.getElementById('filter-count-badge');
   var btnEl = document.getElementById('lib-filter-toggle');
