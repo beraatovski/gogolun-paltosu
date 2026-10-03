@@ -5711,7 +5711,6 @@ function home(){
     +(yt?'<a class="btn ghost" href="'+esc(yt)+'" target="_blank" rel="noopener">'+ytIcon+'<span>YouTube ↗</span></a>':'')
     +(ig?'<a class="btn ghost" href="'+esc(ig)+'" target="_blank" rel="noopener">'+igIcon+'<span>Instagram ↗</span></a>':'')
     +'<a class="btn ghost" href="kitaplar.html?f=indirilebilir">'+dlIcon+'<span>Epub ve PDF kitaplara göz at</span></a>'
-    +'<a class="btn ghost" href="test.html">'+quizIcon+'<span>🎭 Edebi Testler & Karakter Analizleri</span></a>'
     +'</div>'
     +'<blockquote class="epi" style="margin-inline:auto">“Hepimiz Gogol\'un Palto\'sundan çıktık.”<small>Dostoyevski\'ye atfedilir</small></blockquote></section>';
 
