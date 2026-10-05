@@ -4506,6 +4506,7 @@ function updateAdminStatus(){
 
 function handleUserSession(user) {
   if (!user) return;
+  var isSameUser = curUser && curUser.id === user.id;
   curUser = user;
   storeUser(user);
   updateAdminStatus();
@@ -4521,6 +4522,7 @@ function handleUserSession(user) {
           if (res && res.data) {
             var p = res.data;
             if (Array.isArray(p.reading_list)) {
+              var oldFavs = JSON.stringify(favs);
               favs = p.reading_list.slice();
               try { localStorage.setItem('gp-favs', JSON.stringify(favs)); } catch(e){}
               if (curUser) {
@@ -4528,7 +4530,10 @@ function handleUserSession(user) {
                 curUser.user_metadata.reading_list = favs.slice();
                 storeUser(curUser);
               }
-              render();
+              var isFormActive = !!document.querySelector('.form, .book-form-container, #book-review-form, #comment-form') || (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'));
+              if (!isSameUser || (oldFavs !== JSON.stringify(favs) && !isFormActive)) {
+                if (!isFormActive) render();
+              }
             }
           } else {
             supa.from('profiles').insert({
@@ -6211,12 +6216,108 @@ function adminList(){
 }
 function srcToText(a){return (a||[]).map(function(x){return [x.t||'',x.u||'',x.n||''].join(' | ').replace(/( \| )+$/,'');}).join('\n');}
 function textToSrc(t){return t.split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){var p=l.split('|').map(function(x){return x.trim();});if(p.length===1&&/^https?:\/\//i.test(p[0]))return {t:p[0],u:p[0],n:''};return {t:p[0]||'',u:p[1]||'',n:p.slice(2).join(' | ')};});}
+function getBookDraftKey(id){
+  return 'gp-draft-book-' + (id || 'yeni');
+}
+function saveBookFormDraft(id){
+  try {
+    var bfc = document.querySelector('.book-form-container');
+    if (!bfc) return;
+    var bId = id || bfc.getAttribute('data-book-id') || 'yeni';
+    var tInp = document.getElementById('f-title');
+    if (!tInp) return;
+
+    var featEl = document.getElementById('f-feat');
+    var colEl = document.querySelector('input[name=color]:checked');
+    var draftData = {
+      title: val('f-title'),
+      author: val('f-author'),
+      publisher: val('f-pub'),
+      year: val('f-year'),
+      category: val('f-cat'),
+      date: val('f-date'),
+      video: val('f-video'),
+      epub: val('f-epub'),
+      pdf: val('f-pdf'),
+      tags: val('f-tags'),
+      summary: val('f-summary'),
+      transcript: val('f-transcript'),
+      sources: val('f-sources'),
+      status: val('f-status'),
+      featured: featEl ? featEl.checked : false,
+      color: colEl ? colEl.value : '',
+      img: formImg || '',
+      updatedAt: Date.now()
+    };
+    var hasAny = (draftData.title || '').trim() || (draftData.author || '').trim() || (draftData.publisher || '').trim()
+      || (draftData.year || '').trim() || (draftData.video || '').trim() || (draftData.summary || '').trim()
+      || (draftData.transcript || '').trim() || (draftData.sources || '').trim() || (draftData.epub || '').trim()
+      || (draftData.pdf || '').trim() || (draftData.img || '').trim();
+    if (hasAny) {
+      localStorage.setItem(getBookDraftKey(bId), JSON.stringify(draftData));
+      var ind = document.getElementById('draft-save-indicator');
+      if (ind) {
+        ind.style.display = 'inline-flex';
+        ind.textContent = '✓ Taslak otomatik kaydedildi';
+      }
+    }
+  } catch(e){}
+}
+function getBookFormDraft(id){
+  try {
+    var raw = localStorage.getItem(getBookDraftKey(id));
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  return null;
+}
+function clearBookFormDraft(id){
+  try {
+    localStorage.removeItem(getBookDraftKey(id));
+  } catch(e){}
+}
 function bookForm(id){
-  var isNew=id==='yeni', b=isNew?{title:'',author:'',year:'',category:'Roman',tags:[],video:'',date:new Date().toISOString().slice(0,10),status:'published',featured:false,summary:'',transcript:'',sources:[],color:COLORS[0]}:S.books.filter(function(x){return x.id===id;})[0];
+  var isNew=id==='yeni';
+  var b=isNew
+    ? {title:'',author:'',publisher:'',year:'',category:'Roman',tags:[],video:'',date:new Date().toISOString().slice(0,10),status:'published',featured:false,summary:'',transcript:'',sources:[],color:COLORS[0]}
+    : S.books.filter(function(x){return x.id===id;})[0];
   if(!b)return '<section class="page"><h1 class="ptitle">Kitap bulunamadı</h1><a class="back" href="yonetim.html">← Panele dön</a></section>';
+
+  var draft = getBookFormDraft(id);
+  var hasDraft = false;
+  if(draft){
+    hasDraft = true;
+    b = {
+      title: draft.title !== undefined ? draft.title : b.title,
+      author: draft.author !== undefined ? draft.author : b.author,
+      publisher: draft.publisher !== undefined ? draft.publisher : (b.publisher || ''),
+      year: draft.year !== undefined ? draft.year : b.year,
+      category: draft.category !== undefined ? draft.category : b.category,
+      date: draft.date !== undefined ? draft.date : b.date,
+      video: draft.video !== undefined ? draft.video : b.video,
+      epub: draft.epub !== undefined ? draft.epub : b.epub,
+      pdf: draft.pdf !== undefined ? draft.pdf : b.pdf,
+      tags: draft.tags !== undefined ? (Array.isArray(draft.tags) ? draft.tags : String(draft.tags).split(',').map(function(x){return x.trim();}).filter(Boolean)) : (b.tags || []),
+      summary: draft.summary !== undefined ? draft.summary : b.summary,
+      transcript: draft.transcript !== undefined ? draft.transcript : b.transcript,
+      sources: draft.sources !== undefined ? (typeof draft.sources === 'string' ? textToSrc(draft.sources) : draft.sources) : (b.sources || []),
+      status: draft.status !== undefined ? draft.status : b.status,
+      featured: draft.featured !== undefined ? draft.featured : b.featured,
+      color: draft.color || b.color || COLORS[0],
+      img: draft.img !== undefined ? draft.img : (b.img || '')
+    };
+  }
   formImg=b.img||'';
+
+  var draftAlert = hasDraft
+    ? '<div class="sync-tip" style="margin-bottom:18px;background:var(--card);border-left:3px solid var(--gold);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<span>💾 <b>Kaydedilmemiş taslak geri yüklendi.</b> Sekme değiştirdiğinizde veya sayfa kapandığında bilgileriniz korunur.</span>'
+      + '<button type="button" class="btn ghost small" data-a="discard-book-draft" data-id="'+esc(id)+'" style="margin-left:auto;color:var(--accent);border-color:var(--accent);font-size:.82rem;padding:4px 10px">Taslağı Sıfırla ✕</button>'
+      + '</div>'
+    : '';
+
   return '<section class="page"><h1 class="ptitle">'+(isNew?'Yeni kitap':'Kitabı düzenle')+'</h1>'+adminTabs('list')
-   +'<div class="form">'
+   + draftAlert
+   +'<div class="form book-form-container" data-book-id="'+esc(id)+'">'
    +'<div class="row2"><div><label for="f-title">Kitap adı *</label><input type="text" id="f-title" value="'+esc(b.title)+'"></div><div><label for="f-author">Yazar</label><input type="text" id="f-author" value="'+esc(b.author)+'"></div></div>'
    +'<div><label for="f-pub">Yayınevi <span class="hint">Örn. Can Yayınları, İş Bankası Kültür Yayınları</span></label><input type="text" id="f-pub" list="pubs" value="'+esc(b.publisher)+'"><datalist id="pubs">'+allPubs().map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist></div>'
    +'<div class="row3"><div><label for="f-year">Yayın yılı</label><input type="text" id="f-year" value="'+esc(b.year)+'"></div><div><label for="f-cat">Kategori</label><input type="text" id="f-cat" list="cats" value="'+esc(b.category)+'"><datalist id="cats">'+allCats().map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist></div><div><label for="f-date">Videonun tarihi</label><input type="date" id="f-date" value="'+esc(b.date)+'"></div></div>'
@@ -6229,7 +6330,7 @@ function bookForm(id){
    +'<div><label>Kapak görseli <span class="hint">Yayınevi kapağını yükleyin (JPG/PNG). Otomatik küçültülür. Görsel yoksa aşağıdaki renkli kapak kullanılır.</span></label><div class="imgprev"><div id="img-prev">'+(formImg?cover({img:formImg,title:b.title,author:b.author}):'<span class="hint">Henüz görsel yok</span>')+'</div><div class="btns"><label class="btn ghost small" style="margin:0;cursor:pointer">Görsel seç<input type="file" id="f-img" accept="image/*" class="hide"></label><button class="btn danger small" data-a="rmimg">Görseli kaldır</button></div></div></div>'
    +'<div><label>Yedek kapak rengi</label><div class="swatches">'+COLORS.map(function(c){return '<label><input type="radio" name="color" value="'+c+'"'+(color(b.color)===c?' checked':'')+'><span style="--c:'+c+'"></span></label>';}).join('')+'</div></div>'
    +'<div class="row2"><div><label for="f-status">Durum</label><select id="f-status"><option value="published"'+(b.status!=='draft'?' selected':'')+'>Yayında</option><option value="draft"'+(b.status==='draft'?' selected':'')+'>Taslak (ziyaretçiye gizli)</option></select></div><div class="check" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="f-feat"'+(b.featured?' checked':'')+'><label for="f-feat" style="margin:0">Ana sayfada öne çıkar</label></div></div>'
-   +'<div class="btns" style="justify-content:flex-start"><button class="btn" data-a="savebook" data-id="'+esc(id)+'">Kaydet</button><a class="btn ghost" href="yonetim.html">Vazgeç</a></div></div></section>';
+   +'<div class="btns" style="justify-content:flex-start;align-items:center;gap:12px"><button class="btn" data-a="savebook" data-id="'+esc(id)+'">Kaydet</button><a class="btn ghost" href="yonetim.html" data-a="cancelbook" data-id="'+esc(id)+'">Vazgeç</a><span id="draft-save-indicator" style="font-size:.82rem;color:var(--ink-soft);font-style:italic;' + (hasDraft ? 'display:inline-flex' : 'display:none') + '">✓ Taslak otomatik kaydedildi</span></div></div></section>';
 }
 function adminSettings(){
   var s=S.site;
@@ -6937,7 +7038,8 @@ function route(){
   }
   if (page === 'yonetim' || page === 'admin') {
     var tab = params.get('tab');
-    return tab ? ['yonetim', tab] : ['yonetim'];
+    var bId = params.get('id');
+    return tab ? (bId ? ['yonetim', tab, bId] : ['yonetim', tab]) : ['yonetim'];
   }
   if (page === 'hosgeldiniz' || page === 'onaylandi') return ['hosgeldiniz'];
   return [''];
@@ -7240,7 +7342,9 @@ document.addEventListener('click',function(e){
   else if(a==='toggle'){var b=S.books.filter(function(x){return x.id===id;})[0];if(b){b.status=b.status==='draft'?'published':'draft';markDirty();render();}}
   else if(a==='del'){var bk=S.books.filter(function(x){return x.id===id;})[0];if(bk)confirmBox('“'+bk.title+'” kitabı silinsin mi?','Sil',function(){S.books=S.books.filter(function(x){return x.id!==id;});markDirty();render();toast('Kitap silindi (henüz yayınlanmadı).');});}
   else if(a==='savebook')saveBook(id);
-  else if(a==='rmimg'){formImg='';document.getElementById('img-prev').innerHTML='<span class="hint">Henüz görsel yok</span>';var fi=document.getElementById('f-img');if(fi)fi.value='';}
+  else if(a==='cancelbook'){clearBookFormDraft(id);navigateToPage('yonetim.html');}
+  else if(a==='discard-book-draft'){clearBookFormDraft(id);render();toast('Taslak temizlendi.');}
+  else if(a==='rmimg'){formImg='';document.getElementById('img-prev').innerHTML='<span class="hint">Henüz görsel yok</span>';var fi=document.getElementById('f-img');if(fi)fi.value='';var bfc=document.querySelector('.book-form-container');if(bfc)saveBookFormDraft(bfc.getAttribute('data-book-id')||'yeni');}
   else if(a==='savesettings')saveSettings();
   else if(a==='export-reading-list')exportReadingList();
   else if(a==='change-password-modal')openAuthModal('newpass');
@@ -7744,8 +7848,18 @@ $app.addEventListener('input',function(e){
       if(autEl) autEl.value = matchBook.author;
     }
   }
+  var bfc = e.target.closest && e.target.closest('.book-form-container');
+  if(bfc){
+    var bId = bfc.getAttribute('data-book-id') || 'yeni';
+    saveBookFormDraft(bId);
+  }
 });
 $app.addEventListener('change',function(e){
+  var bfc = e.target.closest && e.target.closest('.book-form-container');
+  if(bfc){
+    var bId = bfc.getAttribute('data-book-id') || 'yeni';
+    saveBookFormDraft(bId);
+  }
   if(e.target.id==='f-img'){pickImg(e.target.files&&e.target.files[0]);return;}
   if(e.target.id==='prof-avatar-file'){pickProfileAvatar(e.target.files&&e.target.files[0]);return;}
   if(e.target.id==='lib-sort'){lib.sort=e.target.value;lib.page=1;refreshLib();}
@@ -7758,6 +7872,16 @@ $app.addEventListener('change',function(e){
       if(aEl) aEl.value = mb.author;
     }
   }
+});
+window.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){
+    var bfc=document.querySelector('.book-form-container');
+    if(bfc)saveBookFormDraft(bfc.getAttribute('data-book-id')||'yeni');
+  }
+});
+window.addEventListener('pagehide',function(){
+  var bfc=document.querySelector('.book-form-container');
+  if(bfc)saveBookFormDraft(bfc.getAttribute('data-book-id')||'yeni');
 });
 function pickImg(f){
   if(!f)return;
@@ -7774,6 +7898,8 @@ function pickImg(f){
       formImg=c.toDataURL('image/jpeg',0.85);
       var pv=document.getElementById('img-prev');
       if(pv)pv.innerHTML=cover({img:formImg,title:'',author:''});
+      var bfc=document.querySelector('.book-form-container');
+      if(bfc)saveBookFormDraft(bfc.getAttribute('data-book-id')||'yeni');
     };
     im.src=r.result;
   };
@@ -7790,6 +7916,7 @@ function saveBook(id){
     sources:textToSrc(val('f-sources')),img:formImg,color:col?col.value:COLORS[0],status:val('f-status'),featured:featEl?featEl.checked:false};
   if(id==='yeni'){b.id=uniqueId(title);S.books.push(b);}
   else{var i=S.books.findIndex(function(x){return x.id===id;});b.id=id;if(i>=0)S.books[i]=b;else S.books.push(b);}
+  clearBookFormDraft(id);
   markDirty();toast('Kaydedildi. Yayınla düğmesine basana kadar ziyaretçiler görmez.');navigateToPage('yonetim.html');
 }
 function saveSettings(){
@@ -8062,7 +8189,8 @@ async function init(){
               if(!curUser.user_metadata) curUser.user_metadata = {};
               curUser.user_metadata.reading_list = favs.slice();
               storeUser(curUser);
-              render();
+              var isFormActive = !!document.querySelector('.form, .book-form-container, #book-review-form, #comment-form') || (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'));
+              if(!isFormActive) render();
             }
           } catch(e){}
         }
@@ -8081,6 +8209,13 @@ async function init(){
         }
       }
       supa.auth.onAuthStateChange(function(evt, session){
+        if(evt === 'TOKEN_REFRESHED'){
+          if(session && session.user){
+            curUser = session.user;
+            storeUser(curUser);
+          }
+          return;
+        }
         if(evt==='PASSWORD_RECOVERY' || isRecovery){
           openAuthModal('newpass');
         } else if(session && session.user){
