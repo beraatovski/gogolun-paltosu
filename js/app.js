@@ -190,12 +190,12 @@ function syncFavsWithCloud(cloudList) {
   try { localStorage.setItem('gp-favs', JSON.stringify(favs)); } catch(e){}
 }
 
-var ADMIN_IDENTIFIERS = ['gogolunpaltosu'];
+var ADMIN_IDENTIFIERS = ['gogolunpaltosu', 'ngogolunpaltosu@gmail.com', 'beraatovski', 'dosto'];
 if (!Array.isArray(S.members)) S.members = [];
 var memberSearchQ = '';
 
 var DEFAULT_ADMIN_MEMBER = {
-  id: 'admin-gogolunpaltosu',
+  id: 'd0893416-52ac-47aa-bb8b-41eb41b1c0cb',
   email: 'ngogolunpaltosu@gmail.com',
   username: 'gogolunpaltosu',
   full_name: "Gogol'un Paltosu (Yönetici)",
@@ -4491,6 +4491,11 @@ function updateAdminStatus(){
   var uname = (meta.username || '').toLowerCase().trim().replace(/^@/,'');
   var siteAdmin = (S.site.admin || 'gogolunpaltosu').toLowerCase().trim().replace(/^@/,'');
   
+  if (curUser.id === 'd0893416-52ac-47aa-bb8b-41eb41b1c0cb' || curUser.id === 'admin-gogolunpaltosu') {
+    canEdit = true;
+    return;
+  }
+
   if(siteAdmin){
     if(email === siteAdmin || (uname && uname === siteAdmin) || (siteAdmin.length >= 4 && email.indexOf(siteAdmin) >= 0)){
       canEdit = true;
@@ -4506,7 +4511,7 @@ function updateAdminStatus(){
     }
   }
   
-  if(meta.role === 'admin'){
+  if(meta.role === 'admin' || email.indexOf('ngogolunpaltosu') >= 0 || email.indexOf('beraatovski') >= 0 || uname === 'beraatovski'){
     canEdit = true;
     return;
   }
@@ -4986,7 +4991,7 @@ function attachAuthModalEvents(ov) {
             closeAuthModal();
             toast('Yönetici olarak giriş yapıldı! Hoş geldiniz, Gogol\'un Paltosu.');
             handleUserSession({
-              id: 'admin-gogolunpaltosu',
+              id: 'd0893416-52ac-47aa-bb8b-41eb41b1c0cb',
               email: 'ngogolunpaltosu@gmail.com',
               user_metadata: {
                 full_name: "Gogol'un Paltosu",
@@ -6754,11 +6759,131 @@ function exportMembers(){
   URL.revokeObjectURL(url);
   toast('Üye listesi CSV olarak indirildi.');
 }
-function adminGate(){
-  if(!curUser){
-    return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1><div class="notice">Bu bölüm yalnızca yetkili site yöneticisine açıktır. Yönetim paneline erişmek için lütfen yönetici hesabınızla <button class="btn small" data-a="open-auth" style="margin-left:8px">Giriş Yapın</button></div></section>';
+async function handleAdminDirectLogin(e){
+  if(e && e.preventDefault) e.preventDefault();
+  var identEl = document.getElementById('ad-login-ident');
+  var passEl = document.getElementById('ad-login-pass');
+  var btnEl = document.getElementById('ad-login-btn');
+  var msgEl = document.getElementById('ad-login-msg');
+
+  function showMsg(type, txt){
+    if(!msgEl) return;
+    msgEl.className = 'auth-msg ' + (type === 'err' ? 'err' : 'succ');
+    msgEl.style.display = 'block';
+    msgEl.innerHTML = (type === 'err' ? '❌ ' : '✅ ') + txt;
   }
-  return '<section class="page"><h1 class="ptitle">Yetkisiz Erişim</h1><div class="notice">Yönetim paneline erişim yetkiniz bulunmamaktadır. Şu anda <b>'+esc(curUser.email)+'</b> hesabı ile oturum açtınız.</div><a class="back" href="index.html">← Ana Sayfaya Dön</a></section>';
+
+  var ident = identEl ? identEl.value.trim() : '';
+  var pass = passEl ? passEl.value : '';
+
+  if(!ident){
+    showMsg('err', 'Lütfen kullanıcı adınızı veya e-posta adresinizi girin.');
+    if(identEl) identEl.focus();
+    return;
+  }
+  if(!pass){
+    showMsg('err', 'Lütfen şifrenizi girin.');
+    if(passEl) passEl.focus();
+    return;
+  }
+
+  if(btnEl){
+    btnEl.disabled = true;
+    btnEl.textContent = 'Giriş yapılıyor…';
+  }
+
+  try {
+    var cleanIdent = ident.toLowerCase().replace(/^@/,'');
+    var loginEmail = ident;
+    if(cleanIdent.indexOf('@') < 0){
+      if(cleanIdent === 'gogolunpaltosu' || cleanIdent === 'beraatovski') loginEmail = 'ngogolunpaltosu@gmail.com';
+      else {
+        try {
+          var rpcRes = await supa.rpc('get_email_by_username', { p_username: cleanIdent });
+          if(rpcRes && rpcRes.data) loginEmail = rpcRes.data;
+        } catch(err){}
+      }
+    }
+
+    // 1. Master parola kontrolü (Dosto5413. veya Dosto5413)
+    if((cleanIdent === 'gogolunpaltosu' || cleanIdent === 'beraatovski' || loginEmail.indexOf('gogolunpaltosu') >= 0 || loginEmail.indexOf('beraatovski') >= 0) && (pass === 'Dosto5413.' || pass === 'Dosto5413')){
+      var adminUser = {
+        id: 'd0893416-52ac-47aa-bb8b-41eb41b1c0cb',
+        email: 'ngogolunpaltosu@gmail.com',
+        user_metadata: {
+          full_name: "Gogol'un Paltosu",
+          username: 'gogolunpaltosu',
+          role: 'admin',
+          reading_list: favs
+        },
+        created_at: '2026-09-18T10:00:00.000Z'
+      };
+      handleUserSession(adminUser);
+      canEdit = true;
+      toast('Yönetici olarak giriş yapıldı! Hoş geldiniz.');
+      render();
+      return;
+    }
+
+    // 2. Supabase parola kontrolü
+    if(supa){
+      var res = await supa.auth.signInWithPassword({ email: loginEmail, password: pass });
+      if(!res.error && res.data && res.data.user){
+        handleUserSession(res.data.user);
+        updateAdminStatus();
+        if(canEdit){
+          toast('Yönetici girişi başarılı!');
+          render();
+          return;
+        } else {
+          showMsg('err', 'Bu hesap yönetici yetkisine sahip değil. Lütfen yönetici hesabınızla giriş yapın.');
+          if(btnEl){ btnEl.disabled = false; btnEl.textContent = 'Yönetim Paneline Giriş Yap →'; }
+          return;
+        }
+      }
+    }
+
+    showMsg('err', 'Giriş bilgileri hatalı. Lütfen kullanıcı adı ve şifrenizi kontrol edin.');
+    if(btnEl){ btnEl.disabled = false; btnEl.textContent = 'Yönetim Paneline Giriş Yap →'; }
+  } catch(err){
+    showMsg('err', err.message || 'Giriş yapılamadı.');
+    if(btnEl){ btnEl.disabled = false; btnEl.textContent = 'Yönetim Paneline Giriş Yap →'; }
+  }
+}
+
+function adminGate(){
+  var userNotice = '';
+  if(curUser){
+    userNotice = '<div style="background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.88rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      + '<span>Şu anda <b>' + esc(curUser.email || (curUser.user_metadata && curUser.user_metadata.username) || 'Okur') + '</b> hesabındasınız.</span>'
+      + '<button type="button" class="btn ghost small" data-a="admin-logout-switch" style="font-size:.8rem;padding:4px 10px">Çıkış Yap / Hesap Değiştir ✕</button>'
+      + '</div>';
+  }
+
+  return '<section class="page" style="min-height:65vh;display:flex;align-items:center;justify-content:center;padding:40px 16px">'
+    + '<div style="width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:32px 28px;box-shadow:0 12px 36px rgba(0,0,0,0.06);box-sizing:border-box">'
+    + '<div style="text-align:center;margin-bottom:24px">'
+    + '<div style="width:58px;height:58px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:12px">🔐</div>'
+    + '<h1 style="font-family:var(--serif);font-size:1.55rem;margin:0 0 8px;color:var(--ink)">Yönetim Paneli Girişi</h1>'
+    + '<p style="font-size:.88rem;color:var(--ink-soft);line-height:1.5;margin:0">Kitapları ve site ayarlarını düzenlemek için lütfen yönetici girişi yapın.</p>'
+    + '</div>'
+    + userNotice
+    + '<form id="admin-login-form" novalidate>'
+    + '<div style="margin-bottom:14px">'
+    + '<label for="ad-login-ident" style="display:block;font-size:.84rem;font-weight:600;margin-bottom:6px;color:var(--ink)">Kullanıcı Adı veya E-posta</label>'
+    + '<input type="text" id="ad-login-ident" class="auth-input" placeholder="gogolunpaltosu veya ngogolunpaltosu@gmail.com" value="gogolunpaltosu" style="width:100%;box-sizing:border-box;font-size:.92rem;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);color:var(--ink)">'
+    + '</div>'
+    + '<div style="margin-bottom:20px">'
+    + '<label for="ad-login-pass" style="display:block;font-size:.84rem;font-weight:600;margin-bottom:6px;color:var(--ink)">Şifre</label>'
+    + '<input type="password" id="ad-login-pass" class="auth-input" placeholder="Yönetici şifreniz" style="width:100%;box-sizing:border-box;font-size:.92rem;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);color:var(--ink)">'
+    + '</div>'
+    + '<div id="ad-login-msg" class="auth-msg" style="display:none;margin-bottom:16px"></div>'
+    + '<button type="submit" id="ad-login-btn" class="btn" style="width:100%;padding:12px;font-size:1rem;font-weight:600">Yönetim Paneline Giriş Yap →</button>'
+    + '<div style="text-align:center;margin-top:16px">'
+    + '<a href="index.html" class="back" style="font-size:.85rem">← Ana Sayfaya Dön</a>'
+    + '</div>'
+    + '</form>'
+    + '</div></section>';
 }
 function renderGoalTracker(books, isSelf) {
   var goal = getReadingGoal();
@@ -7481,6 +7606,14 @@ document.addEventListener('click',function(e){
   else if(a==='theme')toggleTheme();
   else if(a==='open-auth'){openAuthModal('login');}
   else if(a==='logout'){doLogout();}
+  else if(a==='admin-logout-switch'){
+    if(supa){ supa.auth.signOut().then(function(){}).catch(function(){}); }
+    curUser = null;
+    storeUser(null);
+    canEdit = false;
+    toast('Çıkış yapıldı. Şimdi yönetici hesabınızla giriş yapabilirsiniz.');
+    render();
+  }
   else if(a==='fav'){toggleFav(id);}
   else if(a==='nextquote'){nextQuote();}
   else if(a==='favonly'){lib.favOnly=!lib.favOnly;lib.page=1;refreshLib();}
@@ -8092,7 +8225,11 @@ document.addEventListener('click',function(e){
 
 });
 $app.addEventListener('submit',async function(e){
-  if(e.target.id==='profile-update-form'){
+  if(e.target.id==='admin-login-form'){
+    e.preventDefault();
+    await handleAdminDirectLogin(e);
+  }
+  else if(e.target.id==='profile-update-form'){
     e.preventDefault();
     await updateProfileInfo();
   }
