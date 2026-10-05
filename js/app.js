@@ -5637,36 +5637,89 @@ async function publishToGitHubAPI(token){
   }
 }
 
+function getCloudDelta(){
+  var baseBooks = (window.SITE_DATA && Array.isArray(window.SITE_DATA.books)) ? window.SITE_DATA.books : [];
+  var baseMap = {};
+  baseBooks.forEach(function(b){ baseMap[b.id] = b; });
+  
+  var currentMap = {};
+  S.books.forEach(function(b){ currentMap[b.id] = b; });
+  
+  // Base listeden silinen kitaplar
+  var deletedIds = baseBooks.filter(function(b){ return !currentMap[b.id]; }).map(function(b){ return b.id; });
+  
+  // Yeni eklenen veya bilgileri değiştirilen kitaplar (yalnızca fark gider, 12MB değil 20KB!)
+  var customBooks = S.books.filter(function(b){
+    var baseB = baseMap[b.id];
+    if(!baseB) return true; // Yeni eklenen kitap
+    return JSON.stringify(b) !== JSON.stringify(baseB); // Düzenlenen kitap
+  });
+  
+  return {
+    custom_books: customBooks,
+    deleted_ids: deletedIds,
+    site_settings: (window.SITE_DATA && JSON.stringify(S.site) !== JSON.stringify(window.SITE_DATA.site || {})) ? S.site : null,
+    updated_at: new Date().toISOString()
+  };
+}
+
 async function syncAdminToCloud(){
   if(!supa) return;
   try {
     if(curUser && curUser.id){
-      await supa.from('profiles').update({
-        challenges: {
-          custom_books: S.books,
-          site_settings: S.site,
-          updated_at: new Date().toISOString()
-        }
+      var delta = getCloudDelta();
+      var res = await supa.from('profiles').update({
+        challenges: delta
       }).eq('id', curUser.id);
+      if(res && res.error) {
+        console.warn('syncAdminToCloud hatası:', res.error);
+        throw res.error;
+      }
     }
   } catch(err){
     console.warn('syncAdminToCloud hatası:', err);
+    throw err;
   }
 }
 
 async function syncCloudBooks(){
   if(!supa) return;
   try {
-    // 1. Herhangi bir tablo kurulumu gerektirmeden, admin profilindeki güncel kitapları al
+    // 1. Admin profilinden eklenen/düzenlenen/silinen kitap farkını al
     var profRes = await supa.from('profiles').select('challenges').eq('role', 'admin').maybeSingle();
-    if(profRes && profRes.data && profRes.data.challenges && Array.isArray(profRes.data.challenges.custom_books)){
-      var cBooks = profRes.data.challenges.custom_books;
-      if(cBooks.length > 0){
-        S.books = cBooks;
+    if(profRes && profRes.data && profRes.data.challenges){
+      var ch = profRes.data.challenges;
+      var hasChanges = false;
+
+      // Silinen kitapları çıkar
+      if(Array.isArray(ch.deleted_ids) && ch.deleted_ids.length > 0){
+        var preLen = S.books.length;
+        S.books = S.books.filter(function(b){ return ch.deleted_ids.indexOf(b.id) < 0; });
+        if(S.books.length !== preLen) hasChanges = true;
+      }
+
+      // Yeni veya güncellenen kitapları uygula
+      if(Array.isArray(ch.custom_books) && ch.custom_books.length > 0){
+        ch.custom_books.forEach(function(cb){
+          var idx = S.books.findIndex(function(b){ return b.id === cb.id; });
+          if(idx >= 0){
+            S.books[idx] = Object.assign({}, S.books[idx], cb);
+          } else {
+            // Yeni kitap en başa eklenir
+            S.books.unshift(cb);
+          }
+          hasChanges = true;
+        });
+      }
+
+      // Site ayarları
+      if(ch.site_settings){
+        S.site = Object.assign({}, S.site, ch.site_settings);
+        hasChanges = true;
+      }
+
+      if(hasChanges){
         BASE = JSON.stringify(S);
-        if(profRes.data.challenges.site_settings){
-          S.site = Object.assign({}, S.site, profRes.data.challenges.site_settings);
-        }
         if(typeof render === 'function') render();
         return;
       }
@@ -8241,23 +8294,25 @@ async function saveBook(id){
   clearBookFormDraft(id);
   markDirty();
 
-  toast('Kitap kaydediliyor ve buluta aktarılıyor… ⏳');
-  // 1. Bulut veri tabanına kaydet (böylece tüm ziyaretçiler ve cihazlar anında görür)
-  await syncAdminToCloud();
-
-  // 2. Eğer GitHub token varsa commit at
-  var ghTok = localStorage.getItem('gp-github-token');
-  if(ghTok){
-    await publishToGitHubAPI(ghTok);
-  }
-
-  toast('✅ “' + b.title + '” başarıyla kaydedildi ve tüm sitede yayına alındı! 🎉');
-  
+  // 1. ANINDA EKRANI GÜNCELLE VE LİSTEYE GEÇ (KULLANICI ASLA BEKLEMESİN!)
   if (window.history && window.history.replaceState) {
     window.history.replaceState(null, '', 'yonetim.html');
   }
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('✅ “' + b.title + '” başarıyla eklendi! Bulut eşitleniyor… ⏳');
+
+  // 2. Arka planda hafif delta verisini buluta ve GitHub'a yaz
+  try {
+    await syncAdminToCloud();
+    var ghTok = localStorage.getItem('gp-github-token');
+    if(ghTok){
+      await publishToGitHubAPI(ghTok);
+    }
+    toast('☁️ “' + b.title + '” tüm cihazlarda ve ziyaretçilerde yayında! 🎉');
+  } catch(err){
+    console.warn('Bulut aktarım uyarısı:', err);
+  }
 }
 async function saveSettings(){
   var ghTokEl = document.getElementById('s-gh-token');
@@ -8271,14 +8326,15 @@ async function saveSettings(){
   }
   S.site={name:val('s-name').trim()||"Gogol'un Paltosu",tagline:val('s-tag').trim(),admin:val('s-admin').trim(),youtube:val('s-yt').trim(),instagram:val('s-ig').trim(),email:val('s-email')?val('s-email').trim():'',about:val('s-about'),footer:val('s-foot').trim()};
   markDirty();updateAdminStatus();
-  toast('Ayarlar kaydediliyor… ⏳');
-  await syncAdminToCloud();
-  var ghTok = localStorage.getItem('gp-github-token');
-  if(ghTok){
-    await publishToGitHubAPI(ghTok);
-  }
-  toast('Site ayarları kaydedildi ve yayınlandı.');
+  toast('Site ayarları kaydedildi.');
   render();
+  try {
+    await syncAdminToCloud();
+    var ghTok = localStorage.getItem('gp-github-token');
+    if(ghTok){
+      await publishToGitHubAPI(ghTok);
+    }
+  } catch(err){}
 }
 function exportReadingList(){
   var favBooks = S.books.filter(function(b){ return isFav(b.id); });
