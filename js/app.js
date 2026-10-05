@@ -56,6 +56,16 @@ function navigateToPage(url, msg) {
 
 var BASE = JSON.stringify(window.SITE_DATA || (document.getElementById('site-data') ? JSON.parse(document.getElementById('site-data').textContent) : {}));
 var S=JSON.parse(BASE);
+try {
+  var savedDraft = localStorage.getItem('gp-draft');
+  if (savedDraft) {
+    var pDraft = JSON.parse(savedDraft);
+    if (pDraft && Array.isArray(pDraft.books) && pDraft.books.length > 0) {
+      S = pDraft;
+      dirty = true;
+    }
+  }
+} catch(e){}
 var canEdit=false, dirty=false, readerScale=1;
 var lib={q:'',cat:'',pub:'',sort:'new',favOnly:false,dlOnly:false,page:1,filterOpen:false};
 var formImg='';
@@ -5512,6 +5522,11 @@ function buildDoc(){
   return '<!doctype html>\n<html lang="tr">\n<head>\n'+HEAD.replace(/%TITLE%/g,function(){return esc(S.site.name);})+'<style id="app-style">'+css+C+'style>\n'+'</head>\n<body>\n<div id="app"></div>\n<script type="application/json" id="site-data">'+json+C+'script>\n<script id="app-script">'+js+C+'script>\n'+C+'body>\n'+C+'html>';
 }
 async function doPublish(){
+  var ghTok = localStorage.getItem('gp-github-token');
+  if(ghTok){
+    var success = await publishToGitHubAPI(ghTok);
+    if(success) return;
+  }
   var art=null;
   try{art=window.claude&&await claude.use('artifact');}catch(e){}
   if(art){
@@ -5538,11 +5553,11 @@ async function doPublish(){
     var ov = document.createElement('div');
     ov.className = 'ov';
     ov.innerHTML = '<div class="dlg" style="max-width:540px">'
-      + '<h3 style="font-family:var(--serif);font-size:1.3rem;margin:0 0 12px;color:var(--ink)">🎉 Değişiklikler Hazırlandı!</h3>'
-      + '<p style="font-size:.95rem;line-height:1.6;margin-bottom:12px">Güncel <b>data.js</b> dosyası bilgisayarınıza indirildi. Değişiklikler bu tarayıcıda hemen aktif oldu.</p>'
+      + '<h3 style="font-family:var(--serif);font-size:1.3rem;margin:0 0 12px;color:var(--ink)">🎉 data.js Bilgisayarınıza İndirildi!</h3>'
+      + '<p style="font-size:.95rem;line-height:1.6;margin-bottom:12px">Değişiklikleriniz bu tarayıcıda hemen aktif oldu ve güncel <b>data.js</b> dosyası indirildi.</p>'
       + '<div style="background:var(--paper-2);padding:14px;border-radius:10px;border-left:3px solid var(--accent);margin:12px 0;font-size:.9rem;line-height:1.6">'
-      + '📢 <b>Canlı Sitede Yayınlamak İçin:</b><br>'
-      + 'İndirilen <code>data.js</code> dosyasını proje klasörünüzdeki <code>js/data.js</code> ile değiştirebilir veya asistana <i>"Yönetim panelindeki değişiklikleri GitHub\'a yükle"</i> diyebilirsiniz.'
+      + '📢 <b>Tek Tıkla Otomatik Yayınlamak İster misiniz?</b><br>'
+      + 'Yönetim panelindeki <b>Site Ayarları</b> sekmesinden <b>GitHub Personal Access Token (PAT)</b> bilginizi bir kere kaydedin. Sonrasında her kitap eklediğinizde veya düzenlediğinizde indirmeye gerek kalmadan tek tıkla sitenize otomatik yüklenir!'
       + '</div>'
       + '<div class="btns" style="justify-content:flex-end;margin-top:16px">'
       + '<button class="btn small" data-x="close">Anladım ✓</button>'
@@ -5555,6 +5570,101 @@ async function doPublish(){
   } catch(err){
     toast('data.js indirme sırasında bir hata oluştu: ' + (err.message || ''));
   }
+}
+
+async function publishToGitHubAPI(token){
+  var t = token || localStorage.getItem('gp-github-token');
+  if(!t){
+    toast('Lütfen önce Site Ayarları bölümünden GitHub erişim belirtecinizi (PAT) kaydedin.');
+    return false;
+  }
+  try {
+    toast('GitHub\'a otomatik yayınlanıyor… ⏳');
+    var repo = 'beraatovski/gogolun-paltosu';
+    var path = 'js/data.js';
+    var url = 'https://api.github.com/repos/' + repo + '/contents/' + path;
+
+    var getRes = await fetch(url, {
+      headers: {
+        'Authorization': 'token ' + t,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if(!getRes.ok){
+      throw new Error('GitHub dosya bilgisi alınamadı (HTTP ' + getRes.status + ')');
+    }
+    var getData = await getRes.json();
+    var sha = getData.sha;
+
+    var fileContent = 'window.SITE_DATA = ' + JSON.stringify(S) + ';\n';
+    var bytes = new TextEncoder().encode(fileContent);
+    var binString = Array.from(bytes, function(byte){ return String.fromCharCode(byte); }).join('');
+    var base64Content = btoa(binString);
+
+    var putRes = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + t,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Panelden kitap listesi güncellendi (otomatik yayın)',
+        content: base64Content,
+        sha: sha,
+        branch: 'main'
+      })
+    });
+
+    if(!putRes.ok){
+      var errData = await putRes.json();
+      throw new Error(errData.message || ('HTTP ' + putRes.status));
+    }
+
+    dirty = false;
+    try {
+      localStorage.removeItem('gp-draft');
+      sessionStorage.removeItem('gp-draft');
+    } catch(e){}
+    BASE = JSON.stringify(S);
+    render();
+    toast('🚀 GitHub\'a başarıyla yüklendi! Canlı sitede 1-2 dakika içinde aktif olur! 🎉');
+    return true;
+  } catch(err){
+    console.error('GitHub API error:', err);
+    toast('GitHub yükleme hatası: ' + err.message);
+    return false;
+  }
+}
+
+async function syncCloudBooks(){
+  if(!supa) return;
+  try {
+    var res = await supa.from('site_books').select('*');
+    if(res && res.data && res.data.length){
+      var cloudBooks = res.data;
+      var hasChanges = false;
+      cloudBooks.forEach(function(cb){
+        if(cb.status === 'deleted'){
+          var preLen = S.books.length;
+          S.books = S.books.filter(function(b){ return b.id !== cb.id; });
+          if(S.books.length !== preLen) hasChanges = true;
+        } else {
+          var idx = S.books.findIndex(function(b){ return b.id === cb.id; });
+          if(idx >= 0){
+            S.books[idx] = Object.assign({}, S.books[idx], cb);
+          } else {
+            S.books.unshift(cb);
+          }
+          hasChanges = true;
+        }
+      });
+      if(hasChanges){
+        BASE = JSON.stringify(S);
+        if(typeof render === 'function') render();
+      }
+    }
+  } catch(e){}
 }
 
 /* ---------- bileşenler ---------- */
@@ -6225,6 +6335,7 @@ function adminTabs(cur){
     + '</div>';
 }
 function adminList(){
+  var hasGhToken = !!localStorage.getItem('gp-github-token');
   var rows=S.books.slice().sort(byDate).map(function(b){
     return '<tr><td><div class="mini" style="--c:'+color(b.color)+(b.img&&/^data:image\//.test(b.img)?';background-image:url('+b.img+');background-size:cover;background-position:center':'')+'"></div></td><td><div class="t">'+esc(b.title)+(b.featured?' ★':'')+'</div><div style="color:var(--ink-soft);font-size:.85rem">'+esc(b.author)+'</div></td><td>'+esc(b.category||'')+'</td>'
      +'<td><button class="chip'+(b.status==='draft'?'':' on')+'" data-a="toggle" data-id="'+esc(b.id)+'" title="Durumu değiştir">'+(b.status==='draft'?'Taslak':'Yayında')+'</button></td>'
@@ -6234,24 +6345,28 @@ function adminList(){
     ? '<div style="background:color-mix(in srgb,var(--accent) 12%,var(--card));border:2px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
       + '<div>'
       + '<div style="font-weight:700;color:var(--accent);font-size:1.02rem">⚠️ Yayınlanmamış Değişiklikler Var</div>'
-      + '<div style="font-size:.88rem;color:var(--ink);margin-top:2px">Yaptığınız kitap ekleme veya düzenleme işlemleri tarayıcınızda hazır. Canlı sitede yayınlanması için butona basın.</div>'
+      + '<div style="font-size:.88rem;color:var(--ink);margin-top:2px">' + (hasGhToken ? 'Tarayıcınızdaki yeni değişiklikleri GitHub Pages sunucusuna aktarmak için butona basın.' : 'Yaptığınız kitap ekleme veya düzenleme işlemleri bu tarayıcıda hazır. Canlı sitede yayınlanması için butona basın.') + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:8px;align-items:center">'
-      + '<button class="btn small" data-a="publish" style="font-weight:700;padding:8px 16px">🚀 Değişiklikleri Yayınla</button>'
-      + '<button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line)">İptal</button>'
+      + '<button class="btn small" data-a="publish" style="font-weight:700;padding:8px 16px">' + (hasGhToken ? '🚀 GitHub\'a Canlı Yayınla' : '🚀 Değişiklikleri Yayınla') + '</button>'
+      + '<button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line)">Taslağı İptal Et</button>'
       + '</div>'
       + '</div>'
     : '';
+
+  var noticeText = hasGhToken
+    ? '✨ <b>GitHub Otomatik Canlı Yayın Aktif:</b> Belirteciniz tanımlı. Yapılan değişiklikler doğrudan GitHub deponuza yüklenir ve sitede 1-2 dakika içinde aktif olur.'
+    : '💡 <b>Yayınlama Bilgisi:</b> Panelde yaptığınız tüm değişiklikler bu tarayıcıda anında saklanır. Değişikliklerinizi yapay zekaya gerek kalmadan tek tıkla canlı siteye aktarmak için <b>Site Ayarları</b> sekmesinden <b>GitHub Personal Access Token (PAT)</b> belirtecinizi bir defa kaydedebilirsiniz. Dilerseniz <b>data.js İndir</b> düğmesiyle de güncel veriyi alabilirsiniz.';
 
   return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1>'+adminTabs('list')
    + unsavedBanner
    +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px;gap:12px;flex-wrap:wrap;align-items:center">'
    +'<a class="btn" href="yonetim.html?tab=kitap&id=yeni">＋ Yeni kitap ekle</a>'
-   +'<button class="btn ghost" data-a="publish" style="color:var(--accent);border-color:var(--accent);font-weight:600">🚀 Değişiklikleri Yayınla / data.js İndir</button>'
+   +'<button class="btn ghost" data-a="publish" style="color:var(--accent);border-color:var(--accent);font-weight:600">' + (hasGhToken ? '🚀 GitHub\'a Canlı Yayınla' : '🚀 Değişiklikleri Yayınla / data.js İndir') + '</button>'
    +'<span style="font-size:.85rem;color:var(--ink-soft);margin-left:auto">Toplam ' + S.books.length + ' kitap</span>'
    +'</div>'
    +(S.books.length?'<div class="wrap-x"><table class="tbl"><thead><tr><th></th><th>Kitap</th><th>Kategori</th><th>Durum</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="empty">Henüz kitap yok. “Yeni kitap ekle” ile başlayın.</p>')
-   +'<div class="notice">Panelde yaptığınız değişiklikler ve yeni eklediğiniz kitaplar tarayıcınızda anında saklanır. Canlı sitede yayınlanması için <b>Değişiklikleri Yayınla / data.js İndir</b> düğmesine basıp güncel <code>data.js</code> dosyasını GitHub\'a yükleyin veya asistandan talep edin.</div></section>';
+   +'<div class="notice">' + noticeText + '</div></section>';
 }
 function srcToText(a){return (a||[]).map(function(x){return [x.t||'',x.u||'',x.n||''].join(' | ').replace(/( \| )+$/,'');}).join('\n');}
 function textToSrc(t){return t.split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){var p=l.split('|').map(function(x){return x.trim();});if(p.length===1&&/^https?:\/\//i.test(p[0]))return {t:p[0],u:p[0],n:''};return {t:p[0]||'',u:p[1]||'',n:p.slice(2).join(' | ')};});}
@@ -6382,7 +6497,18 @@ function adminSettings(){
    +'<div><label for="s-email">İletişim e-posta adresi</label><input type="email" id="s-email" placeholder="ornek@gmail.com" value="'+esc(s.email||'')+'"></div>'
    +'<div><label for="s-about">Hakkında yazısı <span class="hint">Paragrafları boş satırla ayırın.</span></label><textarea id="s-about" style="min-height:220px">'+esc(s.about)+'</textarea></div>'
    +'<div><label for="s-foot">Alt bilgi notu</label><input type="text" id="s-foot" value="'+esc(s.footer)+'"></div>'
-   +'<div class="btns" style="justify-content:flex-start"><button class="btn" data-a="savesettings">Kaydet</button></div></div></section>';
+   +'<div style="background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:20px">'
+   +'<h3 style="font-family:var(--serif);font-size:1.1rem;margin:0 0 8px;display:flex;align-items:center;gap:8px">🐙 GitHub Otomatik Canlı Yayın (PAT Belirteci)</h3>'
+   +'<p style="font-size:.88rem;color:var(--ink-soft);line-height:1.5;margin-bottom:12px">Yönetim panelinden kitap eklediğinizde veya sildiğinizde <b>yapay zekaya gerek kalmadan</b> doğrudan GitHub Pages üzerinde yayınlanmasını sağlar.</p>'
+   +'<div style="display:flex;gap:10px;flex-wrap:wrap"><input type="password" id="s-gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (GitHub Personal Access Token)" value="'+esc(localStorage.getItem('gp-github-token')||'')+'" style="flex:1;min-width:240px"><button type="button" class="btn small" data-a="test-gh-token">Bağlantıyı Test Et & Kaydet</button></div>'
+   +'<p class="hint" style="margin-top:6px">GitHub → Settings → Developer Settings → Personal access tokens → Generate new token (classic) → "repo" kutusunu işaretleyip oluşturun.</p>'
+   +'</div>'
+   +'<div style="background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:16px">'
+   +'<h3 style="font-family:var(--serif);font-size:1.1rem;margin:0 0 8px;display:flex;align-items:center;gap:8px">☁️ Supabase Canlı Bulut Veritabanı Kurulumu</h3>'
+   +'<p style="font-size:.88rem;color:var(--ink-soft);line-height:1.5;margin-bottom:12px">Kitapları GitHub deploy süresini bile beklemeden <b>anında ve gerçek zamanlı</b> olarak ziyaretçilere yayınlamak için Supabase SQL tablosunu 1 kez kurabilirsiniz.</p>'
+   +'<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn small" data-a="copy-site-books-sql">📋 1 Tıkla SQL Kopyala</button><a class="btn ghost small" href="https://supabase.com/dashboard/project/epvpzfmvdakryixghdhk/sql/new" target="_blank" rel="noopener">Supabase SQL Editor Aç ↗</a></div>'
+   +'</div>'
+   +'<div class="btns" style="justify-content:flex-start;margin-top:20px"><button class="btn" data-a="savesettings">Site Ayarlarını Kaydet</button></div></div></section>';
 }
 function memberRowHTML(m){
   var uName = m.username ? ('@' + m.username) : '—';
@@ -7378,8 +7504,39 @@ document.addEventListener('click',function(e){
     render();
     toast('Değişiklikler iptal edildi.');
   }
-  else if(a==='toggle'){var b=S.books.filter(function(x){return x.id===id;})[0];if(b){b.status=b.status==='draft'?'published':'draft';markDirty();render();}}
-  else if(a==='del'){var bk=S.books.filter(function(x){return x.id===id;})[0];if(bk)confirmBox('“'+bk.title+'” kitabı silinsin mi?','Sil',function(){S.books=S.books.filter(function(x){return x.id!==id;});markDirty();render();toast('Kitap silindi (henüz yayınlanmadı).');});}
+  else if(a==='toggle'){
+    var b=S.books.filter(function(x){return x.id===id;})[0];
+    if(b){
+      b.status=b.status==='draft'?'published':'draft';
+      markDirty();
+      render();
+      if(supa){
+        supa.from('site_books').upsert({ id: b.id, status: b.status }).then(function(){}).catch(function(){});
+      }
+      var ghTok = localStorage.getItem('gp-github-token');
+      if(ghTok){
+        publishToGitHubAPI(ghTok);
+      }
+    }
+  }
+  else if(a==='del'){
+    var bk=S.books.filter(function(x){return x.id===id;})[0];
+    if(bk)confirmBox('“'+bk.title+'” kitabı silinsin mi?','Sil',function(){
+      S.books=S.books.filter(function(x){return x.id!==id;});
+      markDirty();
+      render();
+      if(supa){
+        supa.from('site_books').upsert({ id: id, status: 'deleted' }).then(function(){}).catch(function(){});
+      }
+      var ghTok = localStorage.getItem('gp-github-token');
+      if(ghTok){
+        toast('Kitap silindi. GitHub güncelleniyor… ⏳');
+        publishToGitHubAPI(ghTok);
+      } else {
+        toast('Kitap silindi (bu tarayıcıda güncellendi).');
+      }
+    });
+  }
   else if(a==='savebook')saveBook(id);
   else if(a==='cancelbook'){clearBookFormDraft(id);navigateToPage('yonetim.html');}
   else if(a==='discard-book-draft'){clearBookFormDraft(id);render();toast('Taslak temizlendi.');}
@@ -7407,6 +7564,68 @@ document.addEventListener('click',function(e){
       }).catch(function(){
         toast('Lütfen SQL kutusundaki metni seçip kopyalayın.');
       });
+    }
+  }
+  else if(a==='test-gh-token'){
+    var tokEl = document.getElementById('s-gh-token');
+    var tok = tokEl ? tokEl.value.trim() : '';
+    if(!tok){
+      toast('Lütfen önce GitHub Personal Access Token (PAT) girin.');
+      return;
+    }
+    toast('GitHub bağlantısı test ediliyor… ⏳');
+    fetch('https://api.github.com/repos/beraatovski/gogolun-paltosu', {
+      headers: {
+        'Authorization': 'token ' + tok,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    }).then(function(res){
+      if(res.ok){
+        localStorage.setItem('gp-github-token', tok);
+        toast('✅ Bağlantı başarılı! Token kaydedildi. Artık yapacağınız değişiklikler doğrudan GitHub\'a yüklenecek.');
+        render();
+      } else {
+        toast('❌ Bağlantı başarısız (HTTP ' + res.status + '). Token değerini ve "repo" yetkisini kontrol edin.');
+      }
+    }).catch(function(err){
+      toast('Bağlantı hatası: ' + err.message);
+    });
+  }
+  else if(a==='copy-site-books-sql'){
+    var sql = '-- Supabase SQL Editor\'a yapıştırıp RUN tuşuna basın:\\n'
+      + 'create table if not exists public.site_books (\\n'
+      + '  id text primary key,\\n'
+      + '  title text not null,\\n'
+      + '  author text,\\n'
+      + '  publisher text,\\n'
+      + '  year text,\\n'
+      + '  category text,\\n'
+      + '  date text,\\n'
+      + '  video text,\\n'
+      + '  epub text,\\n'
+      + '  pdf text,\\n'
+      + '  tags jsonb,\\n'
+      + '  summary text,\\n'
+      + '  transcript text,\\n'
+      + '  sources jsonb,\\n'
+      + '  img text,\\n'
+      + '  color text,\\n'
+      + '  status text default \'published\',\\n'
+      + '  featured boolean default false,\\n'
+      + '  created_at timestamp with time zone default timezone(\'utc\'::text, now())\\n'
+      + ');\\n\\n'
+      + 'alter table public.site_books enable row level security;\\n'
+      + 'create policy "Herkes kitapları okuyabilir" on public.site_books for select using (true);\\n'
+      + 'create policy "Yetkili düzenleyebilir" on public.site_books for all using (true);';
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sql).then(function(){
+        toast('SQL şeması panoya kopyalandı! Supabase SQL Editor sayfasına yapıştırıp RUN yapın. 📋');
+      }).catch(function(){
+        prompt('Aşağıdaki SQL kodunu kopyalayın:', sql);
+      });
+    } else {
+      prompt('Aşağıdaki SQL kodunu kopyalayın:', sql);
     }
   }
   else if(a==='toggle-member-role'){
@@ -7956,11 +8175,40 @@ function saveBook(id){
   if(id==='yeni'){b.id=uniqueId(title);S.books.push(b);}
   else{var i=S.books.findIndex(function(x){return x.id===id;});b.id=id;if(i>=0)S.books[i]=b;else S.books.push(b);}
   clearBookFormDraft(id);
-  markDirty();toast('Kaydedildi. Yayınla düğmesine basana kadar ziyaretçiler görmez.');navigateToPage('yonetim.html');
+  markDirty();
+  if(supa){
+    supa.from('site_books').upsert(b).then(function(){}).catch(function(){});
+  }
+  var ghTok = localStorage.getItem('gp-github-token');
+  if(ghTok){
+    toast('Kitap kaydedildi! GitHub\'a canlı aktarılıyor… ⏳');
+    navigateToPage('yonetim.html');
+    publishToGitHubAPI(ghTok);
+  } else {
+    toast('Kitap kaydedildi. Bu tarayıcıda hemen aktif. Canlı sitede yayınlamak için "Değişiklikleri Yayınla"ya basın.');
+    navigateToPage('yonetim.html');
+  }
 }
 function saveSettings(){
+  var ghTokEl = document.getElementById('s-gh-token');
+  if(ghTokEl){
+    var ghTok = ghTokEl.value.trim();
+    if(ghTok){
+      localStorage.setItem('gp-github-token', ghTok);
+    } else {
+      localStorage.removeItem('gp-github-token');
+    }
+  }
   S.site={name:val('s-name').trim()||"Gogol'un Paltosu",tagline:val('s-tag').trim(),admin:val('s-admin').trim(),youtube:val('s-yt').trim(),instagram:val('s-ig').trim(),email:val('s-email')?val('s-email').trim():'',about:val('s-about'),footer:val('s-foot').trim()};
-  markDirty();updateAdminStatus();toast('Ayarlar kaydedildi.');render();
+  markDirty();updateAdminStatus();
+  var ghTok = localStorage.getItem('gp-github-token');
+  if(ghTok){
+    toast('Ayarlar kaydedildi! GitHub\'a aktarılıyor… ⏳');
+    publishToGitHubAPI(ghTok);
+  } else {
+    toast('Ayarlar kaydedildi.');
+  }
+  render();
 }
 function exportReadingList(){
   var favBooks = S.books.filter(function(b){ return isFav(b.id); });
@@ -8186,6 +8434,7 @@ async function init(){
 
   if(supa){
     try{
+      syncCloudBooks();
       syncCloudReviews();
       syncCloudCampComments();
       syncCloudCampParticipants();
