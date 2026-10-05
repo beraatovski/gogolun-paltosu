@@ -5475,14 +5475,34 @@ function confirmBox(msg,yesLabel,onYes){
   ov.addEventListener('click',function(e){var x=e.target.getAttribute&&e.target.getAttribute('data-x');if(x==='yes'){ov.remove();onYes();}else if(x==='no'||e.target===ov){ov.remove();}});
   document.body.appendChild(ov);
 }
-function markDirty(){dirty=true;try{sessionStorage.setItem('gp-draft',JSON.stringify(S));}catch(e){}}
+function markDirty(){
+  dirty = true;
+  try {
+    var str = JSON.stringify(S);
+    localStorage.setItem('gp-draft', str);
+    sessionStorage.setItem('gp-draft', str);
+  } catch(e){}
+}
 
 /* ---------- tema ---------- */
-function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('gp-theme',t);}catch(e){}}
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('gp-theme',t);}catch(e){} }
 try{var th=localStorage.getItem('gp-theme');if(th)document.documentElement.setAttribute('data-theme',th);}catch(e){}
 function toggleTheme(){var cur=document.documentElement.getAttribute('data-theme');if(!cur)cur=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';setTheme(cur==='dark'?'light':'dark');}
 
-/* ---------- yayınlama ---------- */
+/* ---------- yayınlama & data.js dışa aktarma ---------- */
+function downloadDataJsFile(){
+  var content = 'window.SITE_DATA = ' + JSON.stringify(S) + ';\n';
+  var blob = new Blob([content], {type: 'application/javascript;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'data.js';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 var HEAD='<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<title>%TITLE% — Edebiyat Kulübü &amp; Klasik Kitaplar</title>\n<meta name="description" content="Kitaplar, klasik Rus edebiyatı tahlilleri, okuma listeleri, edebi alıntılar ve odaklanma müzikleri. “Hepimiz Gogol\'un Palto\'sundan çıktık.”">\n<meta name="author" content="Gogol\'un Paltosu">\n<meta name="theme-color" content="#7a1f2b">\n<meta property="og:type" content="website">\n<meta property="og:site_name" content="Gogol\'un Paltosu">\n<meta property="og:title" content="%TITLE% — Edebiyat Kulübü &amp; Klasik Kitaplar">\n<meta property="og:description" content="Kitaplar, klasik Rus edebiyatı tahlilleri, okuma listeleri, edebi alıntılar ve odaklanma müzikleri. “Hepimiz Gogol\'un Palto\'sundan çıktık.”">\n<meta property="og:image" content="https://yt3.googleusercontent.com/P0aYh9n0ySEKlJsRZwbZq8udxa5DpvUTzYSgu74iAr07wAUDGi8r0u32vnU97Wnce2cYW0Lang=s800-c-k-c0x00ffffff-no-rj">\n<meta property="og:image:width" content="800">\n<meta property="og:image:height" content="800">\n<meta property="og:locale" content="tr_TR">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:title" content="%TITLE% — Edebiyat Kulübü &amp; Klasik Kitaplar">\n<meta name="twitter:description" content="Kitaplar, klasik Rus edebiyatı tahlilleri, okuma listeleri, edebi alıntılar ve odaklanma müzikleri.">\n<meta name="twitter:image" content="https://yt3.googleusercontent.com/P0aYh9n0ySEKlJsRZwbZq8udxa5DpvUTzYSgu74iAr07wAUDGi8r0u32vnU97Wnce2cYW0Lang=s800-c-k-c0x00ffffff-no-rj">\n<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNmM2VhZDkiLz48ZyBmaWxsPSJub25lIiBzdHJva2U9IiM3YTFmMmIiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48cGF0aCBkPSJNMTUgOCBMOSAxMiBMNSAxOCBMOCA0NCBMNDAgNDQgTDQzIDE4IEwzOSAxMiBMMzMgOCIvPjxwYXRoIGQ9Ik0xNSA4IEwyNCAyNiBMMzMgOCIvPjxwYXRoIGQ9Ik0yNCAyNiBWNDQiLz48L2c+PGcgZmlsbD0iIzdhMWYyYiI+PGNpcmNsZSBjeD0iMjAiIGN5PSIzMSIgcj0iMS42Ii8+PGNpcmNsZSBjeD0iMjAiIGN5PSIzNyIgcj0iMS42Ii8+PGNpcmNsZSBjeD0iMjgiIGN5PSIzMSIgcj0iMS42Ii8+PGNpcmNsZSBjeD0iMjgiIGN5PSIzNyIgcj0iMS42Ii8+PC9nPjwvc3ZnPg==">\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap&subset=latin,latin-ext" rel="stylesheet">\n<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><' + '/script>\n';
 function buildDoc(){
   var css=document.getElementById('app-style').textContent;
@@ -5494,45 +5514,46 @@ function buildDoc(){
 async function doPublish(){
   var art=null;
   try{art=window.claude&&await claude.use('artifact');}catch(e){}
-  if(!art){
-    try {
-      var docStr = buildDoc();
-      var blob = new Blob([docStr], {type: 'text/html;charset=utf-8'});
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'index.html';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+  if(art){
+    toast('Yayınlanıyor…');
+    try{
+      await art.publish(buildDoc());
       dirty = false;
-      try{sessionStorage.removeItem('gp-draft');}catch(e){}
+      try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(e){}
       BASE = JSON.stringify(S);
       render();
-      toast('Değişiklikler kaydedildi ve güncel index.html dosyası indirildi! 🎉');
+      toast('Başarıyla yayınlandı! ✨');
       return;
-    } catch(err){
-      toast('Yayınlama / dosya indirme sırasında bir hata oluştu: ' + (err.message || ''));
-      return;
-    }
+    } catch(e){}
   }
-  toast('Yayınlanıyor…');
-  try{
-    await art.publish(buildDoc());
-    dirty = false;
-    try{sessionStorage.removeItem('gp-draft');}catch(e){}
+  try {
+    downloadDataJsFile();
+    try {
+      localStorage.setItem('gp-draft', JSON.stringify(S));
+      sessionStorage.setItem('gp-draft', JSON.stringify(S));
+    } catch(e){}
     BASE = JSON.stringify(S);
+    dirty = false;
     render();
-    toast('Başarıyla yayınlandı! ✨');
-  }
-  catch(e){
-    var c=e&&e.code,m='Yayınlanamadı. Değişiklikleriniz bu sekmede saklandı, tekrar deneyin.';
-    if(c==='not_writer'||c==='not_granted'||c==='consent_required'||c==='not_declared')m='Bu sayfayı yayınlama yetkiniz yok.';
-    else if(c==='conflict')m='Sayfa başka yerden güncellendi; yeniden yükleniyor.';
-    else if(c==='too_large')m='İçerik çok büyük; uzun metinleri kısaltmayı deneyin.';
-    else if(c==='rate_limited')m='Çok sık yayınladınız; biraz bekleyin.';
-    toast(m);
+    var ov = document.createElement('div');
+    ov.className = 'ov';
+    ov.innerHTML = '<div class="dlg" style="max-width:540px">'
+      + '<h3 style="font-family:var(--serif);font-size:1.3rem;margin:0 0 12px;color:var(--ink)">🎉 Değişiklikler Hazırlandı!</h3>'
+      + '<p style="font-size:.95rem;line-height:1.6;margin-bottom:12px">Güncel <b>data.js</b> dosyası bilgisayarınıza indirildi. Değişiklikler bu tarayıcıda hemen aktif oldu.</p>'
+      + '<div style="background:var(--paper-2);padding:14px;border-radius:10px;border-left:3px solid var(--accent);margin:12px 0;font-size:.9rem;line-height:1.6">'
+      + '📢 <b>Canlı Sitede Yayınlamak İçin:</b><br>'
+      + 'İndirilen <code>data.js</code> dosyasını proje klasörünüzdeki <code>js/data.js</code> ile değiştirebilir veya asistana <i>"Yönetim panelindeki değişiklikleri GitHub\'a yükle"</i> diyebilirsiniz.'
+      + '</div>'
+      + '<div class="btns" style="justify-content:flex-end;margin-top:16px">'
+      + '<button class="btn small" data-x="close">Anladım ✓</button>'
+      + '</div></div>';
+    ov.addEventListener('click', function(e){
+      var x = e.target.getAttribute && e.target.getAttribute('data-x');
+      if (x === 'close' || e.target === ov) ov.remove();
+    });
+    document.body.appendChild(ov);
+  } catch(err){
+    toast('data.js indirme sırasında bir hata oluştu: ' + (err.message || ''));
   }
 }
 
@@ -6210,9 +6231,12 @@ function adminList(){
      +'<td class="acts"><a class="btn ghost small" href="kitap.html?id='+encodeURIComponent(b.id)+'">Gör</a><a class="btn ghost small" href="yonetim.html?tab=kitap&id='+encodeURIComponent(b.id)+'">Düzenle</a><button class="btn danger small" data-a="del" data-id="'+esc(b.id)+'">Sil</button></td></tr>';
   }).join('');
   return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1>'+adminTabs('list')
-   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px"><a class="btn" href="yonetim.html?tab=kitap&id=yeni">＋ Yeni kitap ekle</a></div>'
+   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px;gap:12px;flex-wrap:wrap">'
+   +'<a class="btn" href="yonetim.html?tab=kitap&id=yeni">＋ Yeni kitap ekle</a>'
+   +(dirty ? '<button class="btn ghost" data-a="publish" style="color:var(--accent);border-color:var(--accent);font-weight:600">💾 Değişiklikleri Yayınla / data.js İndir</button>' : '<button class="btn ghost" data-a="publish" title="Mevcut kitap veritabanını data.js olarak indirin">📥 data.js İndir</button>')
+   +'</div>'
    +(S.books.length?'<div class="wrap-x"><table class="tbl"><thead><tr><th></th><th>Kitap</th><th>Kategori</th><th>Durum</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="empty">Henüz kitap yok. “Yeni kitap ekle” ile başlayın.</p>')
-   +'<div class="notice">Yaptığınız değişiklikler önce bu sekmede saklanır. Ziyaretçilere görünmesi için sağ alttaki <b>Yayınla</b> düğmesine basın.</div></section>';
+   +'<div class="notice">Panelde yaptığınız değişiklikler ve yeni eklediğiniz kitaplar tarayıcınızda anında saklanır. Canlı sitede yayınlanması için <b>Değişiklikleri Yayınla / data.js İndir</b> düğmesine basıp güncel <code>data.js</code> dosyasını GitHub\'a yükleyin veya asistandan talep edin.</div></section>';
 }
 function srcToText(a){return (a||[]).map(function(x){return [x.t||'',x.u||'',x.n||''].join(' | ').replace(/( \| )+$/,'');}).join('\n');}
 function textToSrc(t){return t.split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){var p=l.split('|').map(function(x){return x.trim();});if(p.length===1&&/^https?:\/\//i.test(p[0]))return {t:p[0],u:p[0],n:''};return {t:p[0]||'',u:p[1]||'',n:p.slice(2).join(' | ')};});}
@@ -6985,7 +7009,7 @@ function welcomePage(){
 
 function pill(){
   if(!(canEdit&&dirty))return '';
-  return '<div class="pill"><span>Yayınlanmamış değişiklikler var</span><button class="btn small" data-a="publish">Kaydet / Yayınla</button><button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line);padding:2px 8px;font-size:.78rem;margin-left:2px" title="Değişiklikleri İptal Et / Kapat">✕</button></div>';
+  return '<div class="pill"><span>Yayınlanmamış değişiklikler var</span><button class="btn small" data-a="publish">Kaydet / data.js İndir</button><button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line);padding:2px 8px;font-size:.78rem;margin-left:2px" title="Değişiklikleri İptal Et / Kapat">✕</button></div>';
 }
 
 /* ---------- yönlendirme ---------- */
@@ -7334,7 +7358,7 @@ document.addEventListener('click',function(e){
   else if(a==='publish')doPublish();
   else if(a==='discard-draft'){
     dirty = false;
-    try{sessionStorage.removeItem('gp-draft');}catch(e){}
+    try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(e){}
     S = JSON.parse(BASE);
     render();
     toast('Değişiklikler iptal edildi.');
@@ -8246,30 +8270,24 @@ async function init(){
   updateAdminStatus();
   if(canEdit){
     try{
-      var d=sessionStorage.getItem('gp-draft');
+      var d = localStorage.getItem('gp-draft') || sessionStorage.getItem('gp-draft');
       if(d){
         var parsedDraft = JSON.parse(d);
         var baseObj = JSON.parse(BASE);
-        var baseImgCount = baseObj.books ? baseObj.books.filter(function(b){ return b.img && b.img.length > 50; }).length : 0;
-        var draftImgCount = parsedDraft.books ? parsedDraft.books.filter(function(b){ return b.img && b.img.length > 50; }).length : 0;
-        if(parsedDraft.v !== baseObj.v || draftImgCount < baseImgCount || d.indexOf('\u00c3') >= 0 || d.indexOf('\u00c4') >= 0 || d.indexOf('\u00c5') >= 0){
-          sessionStorage.removeItem('gp-draft');
-          d = null;
-          dirty = false;
-        } else {
+        if(parsedDraft && Array.isArray(parsedDraft.books) && parsedDraft.books.length > 0){
           var hasRealChanges = JSON.stringify(parsedDraft.books) !== JSON.stringify(baseObj.books) ||
                                JSON.stringify(parsedDraft.site) !== JSON.stringify(baseObj.site);
           if(hasRealChanges){
             S = parsedDraft;
             dirty = true;
           } else {
-            sessionStorage.removeItem('gp-draft');
+            try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(e){}
             dirty = false;
           }
         }
       }
     }catch(e){
-      try{sessionStorage.removeItem('gp-draft');}catch(err){}
+      try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(err){}
       dirty = false;
     }
   }
