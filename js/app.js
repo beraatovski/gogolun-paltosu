@@ -6230,10 +6230,25 @@ function adminList(){
      +'<td><button class="chip'+(b.status==='draft'?'':' on')+'" data-a="toggle" data-id="'+esc(b.id)+'" title="Durumu değiştir">'+(b.status==='draft'?'Taslak':'Yayında')+'</button></td>'
      +'<td class="acts"><a class="btn ghost small" href="kitap.html?id='+encodeURIComponent(b.id)+'">Gör</a><a class="btn ghost small" href="yonetim.html?tab=kitap&id='+encodeURIComponent(b.id)+'">Düzenle</a><button class="btn danger small" data-a="del" data-id="'+esc(b.id)+'">Sil</button></td></tr>';
   }).join('');
+  var unsavedBanner = dirty
+    ? '<div style="background:color-mix(in srgb,var(--accent) 12%,var(--card));border:2px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      + '<div>'
+      + '<div style="font-weight:700;color:var(--accent);font-size:1.02rem">⚠️ Yayınlanmamış Değişiklikler Var</div>'
+      + '<div style="font-size:.88rem;color:var(--ink);margin-top:2px">Yaptığınız kitap ekleme veya düzenleme işlemleri tarayıcınızda hazır. Canlı sitede yayınlanması için butona basın.</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center">'
+      + '<button class="btn small" data-a="publish" style="font-weight:700;padding:8px 16px">🚀 Değişiklikleri Yayınla</button>'
+      + '<button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line)">İptal</button>'
+      + '</div>'
+      + '</div>'
+    : '';
+
   return '<section class="page"><h1 class="ptitle">Yönetim Paneli</h1>'+adminTabs('list')
-   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px;gap:12px;flex-wrap:wrap">'
+   + unsavedBanner
+   +'<div class="btns" style="justify-content:flex-start;margin-bottom:20px;gap:12px;flex-wrap:wrap;align-items:center">'
    +'<a class="btn" href="yonetim.html?tab=kitap&id=yeni">＋ Yeni kitap ekle</a>'
-   +(dirty ? '<button class="btn ghost" data-a="publish" style="color:var(--accent);border-color:var(--accent);font-weight:600">💾 Değişiklikleri Yayınla / data.js İndir</button>' : '<button class="btn ghost" data-a="publish" title="Mevcut kitap veritabanını data.js olarak indirin">📥 data.js İndir</button>')
+   +'<button class="btn ghost" data-a="publish" style="color:var(--accent);border-color:var(--accent);font-weight:600">🚀 Değişiklikleri Yayınla / data.js İndir</button>'
+   +'<span style="font-size:.85rem;color:var(--ink-soft);margin-left:auto">Toplam ' + S.books.length + ' kitap</span>'
    +'</div>'
    +(S.books.length?'<div class="wrap-x"><table class="tbl"><thead><tr><th></th><th>Kitap</th><th>Kategori</th><th>Durum</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p class="empty">Henüz kitap yok. “Yeni kitap ekle” ile başlayın.</p>')
    +'<div class="notice">Panelde yaptığınız değişiklikler ve yeni eklediğiniz kitaplar tarayıcınızda anında saklanır. Canlı sitede yayınlanması için <b>Değişiklikleri Yayınla / data.js İndir</b> düğmesine basıp güncel <code>data.js</code> dosyasını GitHub\'a yükleyin veya asistandan talep edin.</div></section>';
@@ -7009,7 +7024,7 @@ function welcomePage(){
 
 function pill(){
   if(!(canEdit&&dirty))return '';
-  return '<div class="pill"><span>Yayınlanmamış değişiklikler var</span><button class="btn small" data-a="publish">Kaydet / data.js İndir</button><button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line);padding:2px 8px;font-size:.78rem;margin-left:2px" title="Değişiklikleri İptal Et / Kapat">✕</button></div>';
+  return '<div class="pill" style="z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.25)"><span>⚠️ Yayınlanmamış değişiklikler var</span><button class="btn small" data-a="publish">🚀 Değişiklikleri Yayınla</button><button class="btn ghost small" data-a="discard-draft" style="color:var(--ink-soft);border-color:var(--line);padding:2px 8px;font-size:.78rem;margin-left:2px" title="Değişiklikleri İptal Et / Kapat">✕</button></div>';
 }
 
 /* ---------- yönlendirme ---------- */
