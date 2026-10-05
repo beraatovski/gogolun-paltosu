@@ -56,6 +56,7 @@ function navigateToPage(url, msg) {
 
 var BASE = JSON.stringify(window.SITE_DATA || (document.getElementById('site-data') ? JSON.parse(document.getElementById('site-data').textContent) : {}));
 var S=JSON.parse(BASE);
+var canEdit=false, dirty=false, readerScale=1;
 try {
   var savedDraft = localStorage.getItem('gp-draft');
   if (savedDraft) {
@@ -66,7 +67,6 @@ try {
     }
   }
 } catch(e){}
-var canEdit=false, dirty=false, readerScale=1;
 var lib={q:'',cat:'',pub:'',sort:'new',favOnly:false,dlOnly:false,page:1,filterOpen:false};
 var formImg='';
 var DEFAULT_CATS=['Roman','Öykü','Şiir','Deneme','Tiyatro','Sanat','Felsefe','Biyografi','Diğer'];
@@ -5637,9 +5637,42 @@ async function publishToGitHubAPI(token){
   }
 }
 
+async function syncAdminToCloud(){
+  if(!supa) return;
+  try {
+    if(curUser && curUser.id){
+      await supa.from('profiles').update({
+        challenges: {
+          custom_books: S.books,
+          site_settings: S.site,
+          updated_at: new Date().toISOString()
+        }
+      }).eq('id', curUser.id);
+    }
+  } catch(err){
+    console.warn('syncAdminToCloud hatası:', err);
+  }
+}
+
 async function syncCloudBooks(){
   if(!supa) return;
   try {
+    // 1. Herhangi bir tablo kurulumu gerektirmeden, admin profilindeki güncel kitapları al
+    var profRes = await supa.from('profiles').select('challenges').eq('role', 'admin').maybeSingle();
+    if(profRes && profRes.data && profRes.data.challenges && Array.isArray(profRes.data.challenges.custom_books)){
+      var cBooks = profRes.data.challenges.custom_books;
+      if(cBooks.length > 0){
+        S.books = cBooks;
+        BASE = JSON.stringify(S);
+        if(profRes.data.challenges.site_settings){
+          S.site = Object.assign({}, S.site, profRes.data.challenges.site_settings);
+        }
+        if(typeof render === 'function') render();
+        return;
+      }
+    }
+
+    // 2. Alternatif olarak site_books tablosu mevcutsa oradan al
     var res = await supa.from('site_books').select('*');
     if(res && res.data && res.data.length){
       var cloudBooks = res.data;
@@ -5664,7 +5697,9 @@ async function syncCloudBooks(){
         if(typeof render === 'function') render();
       }
     }
-  } catch(e){}
+  } catch(e){
+    console.warn('syncCloudBooks:', e);
+  }
 }
 
 /* ---------- bileşenler ---------- */
@@ -7510,35 +7545,38 @@ document.addEventListener('click',function(e){
       b.status=b.status==='draft'?'published':'draft';
       markDirty();
       render();
-      if(supa){
-        supa.from('site_books').upsert({ id: b.id, status: b.status }).then(function(){}).catch(function(){});
-      }
+      syncAdminToCloud();
       var ghTok = localStorage.getItem('gp-github-token');
       if(ghTok){
         publishToGitHubAPI(ghTok);
       }
+      toast('Kitap durumu ' + (b.status === 'draft' ? 'Taslak' : 'Yayında') + ' olarak güncellendi.');
     }
   }
   else if(a==='del'){
     var bk=S.books.filter(function(x){return x.id===id;})[0];
-    if(bk)confirmBox('“'+bk.title+'” kitabı silinsin mi?','Sil',function(){
+    if(bk)confirmBox('“'+bk.title+'” kitabı silinsin mi?','Sil',async function(){
       S.books=S.books.filter(function(x){return x.id!==id;});
       markDirty();
       render();
-      if(supa){
-        supa.from('site_books').upsert({ id: id, status: 'deleted' }).then(function(){}).catch(function(){});
-      }
+      toast('Kitap siliniyor… ⏳');
+      await syncAdminToCloud();
       var ghTok = localStorage.getItem('gp-github-token');
       if(ghTok){
-        toast('Kitap silindi. GitHub güncelleniyor… ⏳');
-        publishToGitHubAPI(ghTok);
-      } else {
-        toast('Kitap silindi (bu tarayıcıda güncellendi).');
+        await publishToGitHubAPI(ghTok);
       }
+      toast('Kitap silindi.');
     });
   }
   else if(a==='savebook')saveBook(id);
-  else if(a==='cancelbook'){clearBookFormDraft(id);navigateToPage('yonetim.html');}
+  else if(a==='cancelbook'){
+    clearBookFormDraft(id);
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', 'yonetim.html');
+    }
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   else if(a==='discard-book-draft'){clearBookFormDraft(id);render();toast('Taslak temizlendi.');}
   else if(a==='rmimg'){formImg='';document.getElementById('img-prev').innerHTML='<span class="hint">Henüz görsel yok</span>';var fi=document.getElementById('f-img');if(fi)fi.value='';var bfc=document.querySelector('.book-form-container');if(bfc)saveBookFormDraft(bfc.getAttribute('data-book-id')||'yeni');}
   else if(a==='savesettings')saveSettings();
@@ -8164,32 +8202,64 @@ function pickImg(f){
   r.readAsDataURL(f);
 }
 function val(i){var el=document.getElementById(i);return el?(el.value||''):'';}
-function saveBook(id){
+async function saveBook(id){
   var title=val('f-title').trim();
   if(!title){toast('Kitap adı gerekli.');var tEl=document.getElementById('f-title');if(tEl)tEl.focus();return;}
   var col=document.querySelector('input[name=color]:checked');
   var featEl=document.getElementById('f-feat');
-  var b={title:title,author:val('f-author').trim(),publisher:val('f-pub').trim(),year:val('f-year').trim(),category:val('f-cat').trim()||'Diğer',date:val('f-date'),video:val('f-video').trim(),
-    epub:val('f-epub').trim(),pdf:val('f-pdf').trim(),tags:val('f-tags').split(',').map(function(x){return x.trim();}).filter(Boolean),summary:val('f-summary').trim(),transcript:val('f-transcript').replace(/\r\n/g,'\n'),
-    sources:textToSrc(val('f-sources')),img:formImg,color:col?col.value:COLORS[0],status:val('f-status'),featured:featEl?featEl.checked:false};
-  if(id==='yeni'){b.id=uniqueId(title);S.books.push(b);}
-  else{var i=S.books.findIndex(function(x){return x.id===id;});b.id=id;if(i>=0)S.books[i]=b;else S.books.push(b);}
+  var bookDate = val('f-date') || new Date().toISOString().slice(0, 10);
+  var b={
+    title:title,
+    author:val('f-author').trim(),
+    publisher:val('f-pub').trim(),
+    year:val('f-year').trim(),
+    category:val('f-cat').trim()||'Diğer',
+    date:bookDate,
+    video:val('f-video').trim(),
+    epub:val('f-epub').trim(),
+    pdf:val('f-pdf').trim(),
+    tags:val('f-tags').split(',').map(function(x){return x.trim();}).filter(Boolean),
+    summary:val('f-summary').trim(),
+    transcript:val('f-transcript').replace(/\r\n/g,'\n'),
+    sources:textToSrc(val('f-sources')),
+    img:formImg,
+    color:col?col.value:COLORS[0],
+    status:val('f-status')||'published',
+    featured:featEl?featEl.checked:false
+  };
+
+  if(id==='yeni'){
+    b.id=uniqueId(title);
+    S.books.unshift(b); // En başa ekle ki ana sayfada ve kitaplar listesinde hemen 1. sırada görünsün!
+  } else {
+    var i=S.books.findIndex(function(x){return x.id===id;});
+    b.id=id;
+    if(i>=0) S.books[i]=b;
+    else S.books.unshift(b);
+  }
+
   clearBookFormDraft(id);
   markDirty();
-  if(supa){
-    supa.from('site_books').upsert(b).then(function(){}).catch(function(){});
-  }
+
+  toast('Kitap kaydediliyor ve buluta aktarılıyor… ⏳');
+  // 1. Bulut veri tabanına kaydet (böylece tüm ziyaretçiler ve cihazlar anında görür)
+  await syncAdminToCloud();
+
+  // 2. Eğer GitHub token varsa commit at
   var ghTok = localStorage.getItem('gp-github-token');
   if(ghTok){
-    toast('Kitap kaydedildi! GitHub\'a canlı aktarılıyor… ⏳');
-    navigateToPage('yonetim.html');
-    publishToGitHubAPI(ghTok);
-  } else {
-    toast('Kitap kaydedildi. Bu tarayıcıda hemen aktif. Canlı sitede yayınlamak için "Değişiklikleri Yayınla"ya basın.');
-    navigateToPage('yonetim.html');
+    await publishToGitHubAPI(ghTok);
   }
+
+  toast('✅ “' + b.title + '” başarıyla kaydedildi ve tüm sitede yayına alındı! 🎉');
+  
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState(null, '', 'yonetim.html');
+  }
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function saveSettings(){
+async function saveSettings(){
   var ghTokEl = document.getElementById('s-gh-token');
   if(ghTokEl){
     var ghTok = ghTokEl.value.trim();
@@ -8201,13 +8271,13 @@ function saveSettings(){
   }
   S.site={name:val('s-name').trim()||"Gogol'un Paltosu",tagline:val('s-tag').trim(),admin:val('s-admin').trim(),youtube:val('s-yt').trim(),instagram:val('s-ig').trim(),email:val('s-email')?val('s-email').trim():'',about:val('s-about'),footer:val('s-foot').trim()};
   markDirty();updateAdminStatus();
+  toast('Ayarlar kaydediliyor… ⏳');
+  await syncAdminToCloud();
   var ghTok = localStorage.getItem('gp-github-token');
   if(ghTok){
-    toast('Ayarlar kaydedildi! GitHub\'a aktarılıyor… ⏳');
-    publishToGitHubAPI(ghTok);
-  } else {
-    toast('Ayarlar kaydedildi.');
+    await publishToGitHubAPI(ghTok);
   }
+  toast('Site ayarları kaydedildi ve yayınlandı.');
   render();
 }
 function exportReadingList(){
@@ -8532,29 +8602,21 @@ async function init(){
     }catch(e){console.warn('Supabase auth listener error:',e);}
   }
   updateAdminStatus();
-  if(canEdit){
-    try{
-      var d = localStorage.getItem('gp-draft') || sessionStorage.getItem('gp-draft');
-      if(d){
-        var parsedDraft = JSON.parse(d);
-        var baseObj = JSON.parse(BASE);
-        if(parsedDraft && Array.isArray(parsedDraft.books) && parsedDraft.books.length > 0){
-          var hasRealChanges = JSON.stringify(parsedDraft.books) !== JSON.stringify(baseObj.books) ||
-                               JSON.stringify(parsedDraft.site) !== JSON.stringify(baseObj.site);
-          if(hasRealChanges){
-            S = parsedDraft;
-            dirty = true;
-          } else {
-            try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(e){}
-            dirty = false;
-          }
+  try{
+    var d = localStorage.getItem('gp-draft') || sessionStorage.getItem('gp-draft');
+    if(d){
+      var parsedDraft = JSON.parse(d);
+      var baseObj = JSON.parse(BASE);
+      if(parsedDraft && Array.isArray(parsedDraft.books) && parsedDraft.books.length > 0){
+        var hasRealChanges = JSON.stringify(parsedDraft.books) !== JSON.stringify(baseObj.books) ||
+                             JSON.stringify(parsedDraft.site) !== JSON.stringify(baseObj.site);
+        if(hasRealChanges){
+          S = parsedDraft;
+          dirty = true;
         }
       }
-    }catch(e){
-      try{localStorage.removeItem('gp-draft');sessionStorage.removeItem('gp-draft');}catch(err){}
-      dirty = false;
     }
-  }
+  }catch(e){}
   try {
     // Eski paylaşımlı cihaz-genel rozet kaydını temizle (hesaplar arası rozet sızmasını tamamen engelle)
     localStorage.removeItem('gp-user-badges');
